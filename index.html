@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#081310" />
+  <meta name="description" content="白垩纪战术：16×16 回合制恐龙策略棋盘，支持人机、双人同屏与联网房间对战。" />
+  <meta property="og:title" content="白垩纪战术 · 联网回合制策略棋盘" />
+  <meta property="og:description" content="创建房间，把链接发给朋友，随时来一场 16×16 的恐龙战术对决。" />
+  <meta property="og:type" content="website" />
+  <title>白垩纪战术 · 联网回合制策略棋盘</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b1a15'/%3E%3Cpath d='M12 42c2-8 8-13 16-14l2-8 6 6 11 1c7 1 12 5 12 12v9H39l-3 9h-7l3-9H22l-4 8-6-2 3-8c-2-1-3-3-3-5z' fill='%23e7b65e'/%3E%3Ccircle cx='48' cy='35' r='1.8' fill='%230b1a15'/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="ambient" aria-hidden="true">
+    <div class="ambient-moon"></div>
+    <div class="ambient-ridge ridge-far"></div>
+    <div class="ambient-ridge ridge-near"></div>
+    <div class="spores" id="spores"></div>
+  </div>
+
+  <div id="battleApp" class="battle-app hidden">
+    <header class="topbar">
+      <div class="brand-mini">
+        <span class="brand-rune" aria-hidden="true">
+          <svg viewBox="0 0 40 40"><path d="M20 3l4.6 8.2L34 9l-3 9.4L37 24l-9.2 2.2L29 36l-9-4.4L11 36l1.2-9.8L3 24l6-5.6L6 9l9.4 2.2z" fill="currentColor"/><circle cx="20" cy="20" r="4.4" fill="#081310"/></svg>
+        </span>
+        <div class="brand-copy">
+          <h1>白垩纪战术</h1>
+          <span>CRETACEOUS TACTICS</span>
+        </div>
+      </div>
+
+      <div class="round-status">
+        <span class="round-kicker">ROUND</span>
+        <strong id="roundNum">01</strong>
+        <span id="turnPill" class="turn-pill blue"><i></i>苍林行动</span>
+      </div>
+
+      <div class="top-actions">
+        <span id="onlineBadge" class="online-badge hidden">联机 <b>-----</b></span>
+        <button id="btnSound" class="icon-btn" type="button" title="音效开关" aria-label="音效开关">
+          <span class="sound-on">♪</span>
+        </button>
+        <button id="btnRules" class="icon-btn" type="button" title="规则图鉴" aria-label="规则图鉴">
+          <span>?</span>
+        </button>
+        <button id="btnRestart" class="icon-btn" type="button" title="重新开始" aria-label="重新开始">
+          <span>↻</span>
+        </button>
+      </div>
+    </header>
+
+    <main class="battle-layout">
+      <aside class="left-rail">
+        <section id="blueTeamPanel" class="team-panel team-blue"></section>
+        <section id="redTeamPanel" class="team-panel team-red"></section>
+        <section class="objective-card">
+          <div class="objective-icon">✦</div>
+          <div>
+            <span class="micro-label">胜利条件</span>
+            <strong>歼灭敌方全部恐龙</strong>
+            <div class="objective-score">
+              <span>苍林 <b id="blueKills">0</b></span>
+              <span>赤焰 <b id="redKills">0</b></span>
+            </div>
+          </div>
+        </section>
+      </aside>
+
+      <section class="board-column">
+        <div class="battle-bar">
+          <div id="turnBanner" class="turn-banner blue">
+            <span class="turn-dot"></span>
+            <div>
+              <strong id="turnTitle">第 1 回合 · 苍林盟约行动</strong>
+              <span id="turnSub">选择一只恐龙开始行动</span>
+            </div>
+          </div>
+          <button id="btnEndTurnTop" class="btn btn-end" type="button">
+            <span>结束回合</span>
+            <kbd>E</kbd>
+          </button>
+        </div>
+
+        <div class="board-tools">
+          <button id="btnZoomBoard" class="board-zoom-btn" type="button" aria-pressed="false" title="放大棋盘">
+            <span class="zoom-icon">⤢</span><span class="zoom-text">放大</span>
+          </button>
+        </div>
+        <div id="boardViewport" class="board-viewport">
+          <div class="board-frame">
+            <div class="board-corner corner-tl"></div>
+          <div class="board-corner corner-tr"></div>
+          <div class="board-corner corner-bl"></div>
+          <div class="board-corner corner-br"></div>
+          <div class="board-top-rail">
+            <span>赤焰部族 · 上半场</span>
+            <span class="rail-mid">NO MAN'S LAND</span>
+            <span>苍林盟约 · 下半场</span>
+          </div>
+          <div id="board" class="board">
+            <div id="grid" class="grid" role="grid" aria-label="16乘16棋盘"></div>
+            <div id="corpseLayer" class="corpse-layer"></div>
+            <div id="tokenLayer" class="token-layer"></div>
+            <div id="moveLayer" class="move-layer"></div>
+            <div id="effectLayer" class="effect-layer"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="board-hints">
+          <div class="legend">
+            <span><i class="pip move"></i>移动</span>
+            <span><i class="pip attack"></i>攻击</span>
+            <span><i class="pip skill"></i>技能</span>
+            <span><i class="pip corpse"></i>尸体</span>
+          </div>
+          <div id="boardHint" class="board-hint">点击左侧单位或棋盘上的己方恐龙。</div>
+        </div>
+      </section>
+
+      <aside class="right-rail">
+        <section id="detailPanel" class="detail-panel"></section>
+        <section id="actionPanel" class="action-panel"></section>
+        <section class="log-panel">
+          <header>
+            <span><i></i>战报</span>
+            <span id="logMeta">ROUND 01</span>
+          </header>
+          <div id="logList" class="log-list" aria-live="polite"></div>
+        </section>
+      </aside>
+    </main>
+  </div>
+
+  <!-- 开始 / 阵容界面 -->
+  <div id="startScreen" class="overlay start-screen">
+    <div class="start-pattern" aria-hidden="true"></div>
+    <div class="start-content">
+      <section class="start-hero">
+        <div class="eyebrow"><span></span> TURN-BASED TACTICS · 16 × 16</div>
+        <h1 class="game-title"><span>白垩纪</span><span>战术</span></h1>
+        <p class="hero-sub">两支史前军团，一片被晨雾笼罩的方格盆地。<br />调遣你的恐龙，利用体型、朝向与技能，将对手彻底逐出战场。</p>
+
+        <div class="mode-select" id="modeSelect">
+          <button class="mode-card active" data-mode="ai" type="button">
+            <span class="mode-glyph">◈</span>
+            <span class="mode-copy"><strong>人机对战</strong><small>你指挥苍林盟约</small></span>
+            <em>推荐</em>
+          </button>
+          <button class="mode-card" data-mode="pvp" type="button">
+            <span class="mode-glyph">◇</span>
+            <span class="mode-copy"><strong>双人同屏</strong><small>轮流下达指令</small></span>
+          </button>
+          <button class="mode-card" data-mode="online" type="button">
+            <span class="mode-glyph">⌁</span>
+            <span class="mode-copy"><strong>联网对战</strong><small>创建 / 加入房间</small></span>
+            <em>NEW</em>
+          </button>
+        </div>
+
+        <div class="hero-actions">
+          <button id="btnStart" class="btn btn-primary btn-large" type="button">进入战场 <span>→</span></button>
+          <button id="btnRulesStart" class="btn btn-ghost" type="button">规则图鉴</button>
+        </div>
+
+        <div class="hero-meta">
+          <div><strong>5</strong><span>恐龙兵种</span></div>
+          <div><strong>6</strong><span>队伍容量</span></div>
+          <div><strong>16×16</strong><span>方格战场</span></div>
+        </div>
+
+        <div class="hero-dinos" aria-hidden="true">
+          <div class="hero-dino hd-one" data-icon="trex"></div>
+          <div class="hero-dino hd-two" data-icon="trike"></div>
+          <div class="hero-dino hd-three" data-icon="stego"></div>
+        </div>
+      </section>
+
+      <section class="builder-panel">
+        <header class="builder-head">
+          <div>
+            <span class="eyebrow">ARMY BUILDER</span>
+            <h2>出征阵容</h2>
+          </div>
+          <span class="capacity-note">每队容量 <b>6</b></span>
+        </header>
+        <div id="buildTeams" class="build-teams"></div>
+        <div class="builder-actions">
+          <button id="btnRandom" class="btn btn-small btn-ghost" type="button">随机阵容</button>
+          <button id="btnDefault" class="btn btn-small btn-ghost" type="button">恢复默认</button>
+          <span id="startWarning" class="start-warning"></span>
+        </div>
+        <div class="builder-tip">
+          <span>提示</span> 中型恐龙占 2 格棋盘 / 2 点容量，霸王龙占 4 格 / 4 点容量。允许重复编入同种恐龙，但每队至多 6 容量。
+        </div>
+      </section>
+    </div>
+    <footer class="start-footer">
+      <span>© 白垩纪战术</span>
+      <span>移动 · 攻击 · 技能 · 生存</span>
+    </footer>
+  </div>
+
+  <!-- 联网对战大厅 -->
+  <div id="onlineLobby" class="overlay online-screen hidden">
+    <div class="online-shell">
+      <header class="online-head">
+        <div>
+          <span class="eyebrow">ONLINE ARENA</span>
+          <h2>联网对战</h2>
+        </div>
+        <button id="btnCloseOnline" class="icon-btn close-btn" type="button" aria-label="关闭联网大厅">×</button>
+      </header>
+
+      <div class="online-body">
+        <section id="onlineConnect" class="online-connect">
+          <div class="online-mark">⌁</div>
+          <h3>把房间码发给朋友</h3>
+          <p>创建房间后，把 5 位房间码或邀请链接发给朋友。对方打开链接、输入昵称即可加入。</p>
+          <label class="online-field">
+            <span>你的昵称</span>
+            <input id="onlineName" type="text" maxlength="12" placeholder="例如：化石猎人" autocomplete="nickname" />
+          </label>
+          <button id="btnCreateRoom" class="btn btn-primary btn-large" type="button">创建房间</button>
+          <div class="online-divider"><span>或者加入已有房间</span></div>
+          <div class="online-join">
+            <input id="onlineCode" type="text" maxlength="5" placeholder="5 位房间码" autocomplete="off" spellcheck="false" />
+            <button id="btnJoinRoom" class="btn btn-ghost" type="button">加入</button>
+          </div>
+          <p id="onlineConnectHint" class="online-hint">正在连接服务器…</p>
+        </section>
+
+        <section id="onlineRoomPanel" class="online-room hidden">
+          <div class="online-room-top">
+            <div class="room-code-wrap">
+              <span>房间码</span>
+              <b id="onlineRoomCode">-----</b>
+            </div>
+            <div class="room-top-actions">
+              <button id="btnCopyCode" class="btn btn-small btn-ghost" type="button">复制房间码</button>
+              <button id="btnCopyLink" class="btn btn-small btn-ghost" type="button">复制邀请链接</button>
+              <span id="onlineConnState" class="online-state"><i></i>已连接</span>
+            </div>
+          </div>
+
+          <div id="roomPlayers" class="room-players"></div>
+
+          <div class="online-lineup-panel">
+            <div class="online-lineup-head">
+              <strong>你的阵容</strong>
+              <span id="onlineCap">0/6</span>
+            </div>
+            <div id="onlineLineup" class="online-lineup"></div>
+            <div class="online-lineup-actions">
+              <button id="btnOnlineDefault" class="btn btn-small btn-ghost" type="button">默认阵容</button>
+              <button id="btnOnlineRandom" class="btn btn-small btn-ghost" type="button">随机阵容</button>
+            </div>
+          </div>
+
+          <div class="online-room-actions">
+            <button id="btnReady" class="btn btn-primary" type="button">准备</button>
+            <button id="btnLeaveRoom" class="btn btn-ghost" type="button">离开房间</button>
+          </div>
+          <p id="onlineRoomHint" class="online-hint"></p>
+        </section>
+
+        <section id="onlineReconnect" class="online-reconnect hidden">
+          <span class="spinner"></span>
+          <div><strong>正在重新连接</strong><span>请稍候，对局会在连接恢复后继续。</span></div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- 规则图鉴 -->
+  <div id="rulesModal" class="modal-backdrop hidden">
+    <div class="modal rules-modal" role="dialog" aria-modal="true" aria-labelledby="rulesTitle">
+      <header class="modal-head">
+        <div>
+          <span class="eyebrow">FIELD MANUAL</span>
+          <h2 id="rulesTitle">战场规则</h2>
+        </div>
+        <button id="btnCloseRules" class="icon-btn close-btn" type="button" aria-label="关闭">×</button>
+      </header>
+      <nav class="rules-tabs" id="rulesTabs">
+        <button class="active" data-tab="basics" type="button">基础规则</button>
+        <button data-tab="status" type="button">异常状态</button>
+        <button data-tab="codex" type="button">恐龙图鉴</button>
+        <button data-tab="rulings" type="button">规则裁定</button>
+      </nav>
+      <div id="rulesBody" class="rules-body"></div>
+    </div>
+  </div>
+
+  <!-- 确认弹窗 -->
+  <div id="confirmModal" class="modal-backdrop hidden">
+    <div class="modal confirm-modal" role="dialog" aria-modal="true">
+      <span class="eyebrow">ABANDON BATTLE</span>
+      <h2 id="confirmTitle">要离开这场战斗吗？</h2>
+      <p id="confirmText">当前战局不会保留。你将返回阵容配置界面，可以重新编队再战。</p>
+      <div class="confirm-actions">
+        <button id="btnConfirmLeave" class="btn btn-danger" type="button">离开战斗</button>
+        <button id="btnCancelLeave" class="btn btn-ghost" type="button">继续战斗</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 结算 -->
+  <div id="gameOver" class="overlay result-screen hidden">
+    <div class="result-card">
+      <div id="resultSigil" class="result-sigil">✦</div>
+      <span class="eyebrow">BATTLE COMPLETE</span>
+      <h2 id="resultTitle">胜利</h2>
+      <p id="resultSub"></p>
+      <div id="resultStats" class="result-stats"></div>
+      <div class="result-actions">
+        <button id="btnRematch" class="btn btn-primary" type="button">再战一局</button>
+        <button id="btnAdjust" class="btn btn-ghost" type="button">调整阵容</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" role="status"></div>
+
+  <script src="engine.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
