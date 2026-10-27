@@ -18,6 +18,7 @@ const HOST = process.env.HOST || '127.0.0.1';
 const MAX_ROOMS = 500;
 const ROOM_TTL = 2 * 60 * 60 * 1000;
 const DISCONNECT_FORFEIT_MS = 90 * 1000;
+const REMATCH_TIMEOUT_MS = 30 * 1000;
 const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -133,10 +134,31 @@ function broadcastPresence(room) {
   }
 }
 
+function snapshotForTeam(game, team) {
+  const snap = game.snapshot();
+  if (game.phase === 'deploy') {
+    for (const unit of snap.units) {
+      if (unit.team === team) continue;
+      // 布阵阶段不把对手的占位、朝向和真实坐标发给客户端。
+      unit.hidden = true;
+      unit.x = -1;
+      unit.y = -1;
+      unit.facing = null;
+    }
+  }
+  return snap;
+}
+
+function eventsForTeam(room, team, events) {
+  if (!room.game || room.game.phase !== 'deploy') return events || [];
+  const ownIds = new Set(room.game.getTeamUnits(team).map((unit) => unit.id));
+  // 布阵阶段过滤掉对手的移动/转向事件，避免从事件坐标反推布局。
+  return (events || []).filter((ev) => !ev.unitId || ownIds.has(ev.unitId));
+}
+
 function broadcastState(room, events, actorTeam) {
   const payloadBase = {
     type: 'state',
-    state: room.game.snapshot(),
     events: events || [],
     room: publicRoom(room, null),
     version: room.version,
@@ -146,7 +168,12 @@ function broadcastState(room, events, actorTeam) {
   for (const team of ['blue', 'red']) {
     const p = room.players[team];
     if (!p || !p.ws) continue;
-    send(p.ws, Object.assign({}, payloadBase, { yourTeam: team, room: publicRoom(room, team) }));
+    send(p.ws, Object.assign({}, payloadBase, {
+      state: snapshotForTeam(room.game, team),
+      events: eventsForTeam(room, team, events),
+      yourTeam: team,
+      room: publicRoom(room, team)
+    }));
   }
 }
 
@@ -203,6 +230,7 @@ function startRoom(room) {
   }
   room.phase = 'playing';
   room.version = 1;
+  clearRematch(room);
   room.deployReady = { blue: false, red: false };
   room.log = [];
   addRoomLog(room, room.game.startupEvents);
@@ -212,7 +240,7 @@ function startRoom(room) {
     if (!p || !p.ws) continue;
     send(p.ws, {
       type: 'started',
-      state: room.game.snapshot(),
+      state: snapshotForTeam(room.game, team),
       events: room.game.startupEvents,
       room: publicRoom(room, team),
       yourTeam: team,
@@ -242,6 +270,10 @@ function applyGameAction(game, action) {
         return game.endTeamTurn();
       case 'resumeDevour':
         return game.resumeDevour(String(action.unitId || ''));
+      case 'releaseHook':
+        return game.releaseHook(String(action.unitId || ''));
+      case 'escapeHook':
+        return game.escapeHook(String(action.unitId || ''));
       case 'deployMove':
         if (!intCoord(action.x) || !intCoord(action.y)) return { ok: false, error: '无效的布阵坐标。' };
         return game.deployMove(String(action.unitId || ''), action.x, action.y);
@@ -269,8 +301,47 @@ function playerOf(room, ws) {
   return null;
 }
 
+function clearRematch(room) {
+  if (!room) return;
+  if (room.rematchTimer) clearTimeout(room.rematchTimer);
+  room.rematchTimer = null;
+  room.rematch = { blue: false, red: false };
+  room.rematchDeadline = null;
+}
+
+function broadcastRematch(room) {
+  if (!room) return;
+  const payload = {
+    type: 'rematch',
+    rematch: {
+      blue: !!(room.rematch && room.rematch.blue),
+      red: !!(room.rematch && room.rematch.red),
+      deadline: room.rematchDeadline || null
+    }
+  };
+  for (const team of ['blue', 'red']) {
+    const p = room.players[team];
+    if (p && p.ws) send(p.ws, payload);
+  }
+}
+
+function resetToLobby(room) {
+  clearRematch(room);
+  room.phase = 'lobby';
+  room.game = null;
+  room.deployReady = { blue: false, red: false };
+  room.log = [];
+  room.version += 1;
+  room.updatedAt = Date.now();
+  for (const team of ['blue', 'red']) {
+    if (room.players[team]) room.players[team].ready = false;
+  }
+  broadcastLobby(room);
+}
+
 function closeRoom(room, reason) {
   if (!room) return;
+  clearRematch(room);
   room.phase = 'closed';
   for (const team of ['blue', 'red']) {
     const p = room.players[team];
@@ -411,13 +482,23 @@ function handleMessage(ws, msg) {
     } else if (target.game) {
       send(ws, {
         type: 'resume',
-        state: target.game.snapshot(),
+        state: snapshotForTeam(target.game, player.team),
         room: publicRoom(target, player.team),
         yourTeam: player.team,
         log: target.log.slice(-200),
         version: target.version,
         phase: target.phase
       });
+      if (target.phase === 'finished') {
+        send(ws, {
+          type: 'rematch',
+          rematch: {
+            blue: !!(target.rematch && target.rematch.blue),
+            red: !!(target.rematch && target.rematch.red),
+            deadline: target.rematchDeadline || null
+          }
+        });
+      }
     }
     broadcastPresence(target);
     return;
@@ -511,18 +592,36 @@ function handleMessage(ws, msg) {
     return;
   }
 
+  if (type === 'rematch-request') {
+    if (room.phase !== 'finished') return sendError(ws, '当前不能发起再战。');
+    if (!room.rematch) room.rematch = { blue: false, red: false };
+    if (room.rematch[player.team]) {
+      broadcastRematch(room);
+      return;
+    }
+    room.rematch[player.team] = true;
+    if (room.rematch.blue && room.rematch.red) {
+      resetToLobby(room);
+      return;
+    }
+    if (!room.rematchDeadline) {
+      room.rematchDeadline = now + REMATCH_TIMEOUT_MS;
+      room.rematchTimer = setTimeout(() => {
+        const current = rooms.get(room.code);
+        if (!current || current.phase !== 'finished') return;
+        current.rematch = { blue: false, red: false };
+        current.rematchDeadline = null;
+        current.rematchTimer = null;
+        broadcastRematch(current);
+      }, REMATCH_TIMEOUT_MS);
+    }
+    broadcastRematch(room);
+    return;
+  }
+
   if (type === 'back-to-lobby') {
     if (room.phase !== 'finished') return sendError(ws, '当前不能返回房间。');
-    room.phase = 'lobby';
-    room.game = null;
-    room.deployReady = { blue: false, red: false };
-    room.log = [];
-    room.version += 1;
-    room.updatedAt = now;
-    for (const team of ['blue', 'red']) {
-      if (room.players[team]) room.players[team].ready = false;
-    }
-    broadcastLobby(room);
+    resetToLobby(room);
     return;
   }
 
@@ -557,7 +656,9 @@ function handleMessage(ws, msg) {
     } else if (room.phase === 'finished') {
       player.ws = null;
       player.connected = false;
+      clearRematch(room);
       broadcastPresence(room);
+      broadcastRematch(room);
     } else {
       player.ws = null;
       player.connected = false;

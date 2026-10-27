@@ -4,9 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#081310" />
-  <meta name="description" content="白垩纪战术：16×16 回合制恐龙策略棋盘，支持人机、双人同屏与联网房间对战。" />
+  <meta name="description" content="白垩纪战术：10×10 回合制恐龙策略棋盘，支持人机、双人同屏与联网房间对战。" />
   <meta property="og:title" content="白垩纪战术 · 联网回合制策略棋盘" />
-  <meta property="og:description" content="创建房间，把链接发给朋友，随时来一场 16×16 的恐龙战术对决。" />
+  <meta property="og:description" content="创建房间，把链接发给朋友，随时来一场 10×10 的恐龙战术对决。" />
   <meta property="og:type" content="website" />
   <title>白垩纪战术 · 联网回合制策略棋盘</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b1a15'/%3E%3Cpath d='M12 42c2-8 8-13 16-14l2-8 6 6 11 1c7 1 12 5 12 12v9H39l-3 9h-7l3-9H22l-4 8-6-2 3-8c-2-1-3-3-3-5z' fill='%23e7b65e'/%3E%3Ccircle cx='48' cy='35' r='1.8' fill='%230b1a15'/%3E%3C/svg%3E" />
@@ -101,7 +101,7 @@
             <span>苍林盟约 · 下半场</span>
           </div>
           <div id="board" class="board">
-            <div id="grid" class="grid" role="grid" aria-label="16乘16棋盘"></div>
+            <div id="grid" class="grid" role="grid" aria-label="10乘10棋盘"></div>
             <div id="corpseLayer" class="corpse-layer"></div>
             <div id="tokenLayer" class="token-layer"></div>
             <div id="moveLayer" class="move-layer"></div>
@@ -140,7 +140,7 @@
     <div class="start-pattern" aria-hidden="true"></div>
     <div class="start-content">
       <section class="start-hero">
-        <div class="eyebrow"><span></span> TURN-BASED TACTICS · 16 × 16</div>
+        <div class="eyebrow"><span></span> TURN-BASED TACTICS · 10 × 10</div>
         <h1 class="game-title"><span>白垩纪</span><span>战术</span></h1>
         <p class="hero-sub">两支史前军团，一片被晨雾笼罩的方格盆地。<br />调遣你的恐龙，利用体型、朝向与技能，将对手彻底逐出战场。</p>
 
@@ -167,9 +167,9 @@
         </div>
 
         <div class="hero-meta">
-          <div><strong>5</strong><span>恐龙兵种</span></div>
+          <div><strong>6</strong><span>恐龙兵种</span></div>
           <div><strong>6</strong><span>队伍容量</span></div>
-          <div><strong>16×16</strong><span>方格战场</span></div>
+          <div><strong>10×10</strong><span>方格战场</span></div>
         </div>
 
         <div class="hero-dinos" aria-hidden="true">
@@ -196,6 +196,7 @@
         <div class="builder-tip">
           <span>提示</span> 中型恐龙占 2 格棋盘 / 2 点容量，霸王龙占 4 格 / 4 点容量。允许重复编入同种恐龙，但每队至多 6 容量。
         </div>
+        <button id="btnStartBottom" class="btn btn-primary btn-large mobile-start-cta" type="button">进入战场 <span>→</span></button>
       </section>
     </div>
     <footer class="start-footer">
@@ -316,6 +317,7 @@
       <h2 id="resultTitle">胜利</h2>
       <p id="resultSub"></p>
       <div id="resultStats" class="result-stats"></div>
+      <div id="rematchStatus" class="rematch-status hidden"></div>
       <div class="result-actions">
         <button id="btnRematch" class="btn btn-primary" type="button">再战一局</button>
         <button id="btnAdjust" class="btn btn-ghost" type="button">调整阵容</button>

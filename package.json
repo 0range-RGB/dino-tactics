@@ -2,15 +2,17 @@
   "name": "cretaceous-tactics",
   "version": "1.0.0",
   "private": true,
-  "description": "白垩纪战术 · 16×16 回合制策略棋盘游戏",
+  "description": "白垩纪战术 · 10×10 回合制策略棋盘游戏",
   "scripts": {
     "start": "node server.js",
-    "test": "node tests/engine.test.js"
+    "test": "node tests/engine.test.js",
+    "test:online": "node tests/online-reconnect.test.js",
+    "test:all": "node tests/engine.test.js && node tests/online-reconnect.test.js"
   },
   "engines": {
     "node": ">=18"
   },
   "dependencies": {
-    "ws": "^8.18.3"
+    "ws": "^8.22.0"
   }
 }

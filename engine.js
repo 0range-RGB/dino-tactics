@@ -5,7 +5,7 @@
 (function (global) {
   'use strict';
 
-  var BOARD_SIZE = 16;
+  var BOARD_SIZE = 10;
   var TEAM_CAPACITY = 6;
   var DIRECTIONS = {
     N: { x: 0, y: -1, label: '北', symbol: '↑' },
@@ -38,7 +38,7 @@
       skillName: '防御反击',
       skillDesc: '完全防御下一次受到的攻击，并反击攻击者，造成 4 点伤害。',
       passiveName: '希腊方阵',
-      passiveDesc: '两只或以上同队三角龙在同一直线上相邻且朝向相同，形成方阵；同一只三角龙只计一次。来自所朝正面的攻击伤害减少“方阵数量 + 1”，至多减少 5 点。',
+      passiveDesc: '两只或以上同队三角龙在同一直线上相邻且朝向相同，形成方阵；同一只三角龙只计一次。来自所朝正面的攻击伤害减少“方阵数量”，至多减少 5 点。',
       skillType: 'active'
     },
     trex: {
@@ -49,14 +49,14 @@
       role: '顶级掠食者',
       tags: ['突袭', '温血供应'],
       hp: 12,
-      armor: 1,
+      armor: 2,
       attack: 7,
       move: 1,
       skillCd: 3,
       accent: '#ff9b63',
       emblem: '王',
       skillName: '突袭',
-      skillDesc: '本回合增加 2 点行动力；发动后仍可进行攻击。',
+      skillDesc: '本回合增加 2 点行动力；下一次攻击伤害 +1；发动后仍可进行攻击。',
       passiveName: '温血供应',
       passiveDesc: '击杀敌人后不立即恢复生命，而是吞食尸体：小型 1 回合、中型 2 回合、大型 3 回合，每回合恢复 1 点生命。吞食期间无法行动；受到 ≥3 点伤害会被打断，进度保留。生命低于 4 时改为普通击杀恢复。',
       skillType: 'active'
@@ -109,7 +109,7 @@
       role: '铁壁重甲',
       tags: ['尾槌重击', '甲壳反伤'],
       hp: 4,
-      armor: 6,
+      armor: 5,
       attack: 3,
       move: 1,
       skillCd: 3,
@@ -118,12 +118,42 @@
       skillName: '尾槌重击',
       skillDesc: '对一名相邻敌人发动尾槌：66.7% 命中，造成 3 点伤害；若未破除其护甲，再造成 2 点护甲伤害；若破甲，再造成 1 点生命伤害。另有 50% 概率使其 1 回合内无法攻击甲龙。',
       passiveName: '甲壳壁垒',
-      passiveDesc: '护甲存在时，受到的伤害降低 25%；护甲受到攻击时，攻击者受到 1 点伤害。',
+      passiveDesc: '护甲存在时，受到的伤害降低 15%；护甲受到攻击时，攻击者受到 1 点伤害。',
+      skillType: 'active'
+    },
+    velo: {
+      type: 'velo',
+      name: '伶盗龙',
+      latin: 'Velociraptor',
+      size: 1,
+      role: '钩挂猎手',
+      tags: ['钩挂', '猎手'],
+      hp: 3,
+      armor: 1,
+      attack: 1,
+      move: 4,
+      skillCd: 1,
+      accent: '#c6e36b',
+      emblem: '钩',
+      skillName: '镰锯扑钩',
+      skillDesc: '对朝向一格内的敌人施加一层「受钩挂」，并对自身施加「钩挂」。若目标受钩挂层数已满则无法发动。钩挂期间攻击 +2、无法移动、技能不充能；目标失去受钩挂时钩挂结束。',
+      passiveName: '脆弱之爪',
+      passiveDesc: '攻击只对护甲造成 50% 的伤害。',
       skillType: 'active'
     }
   };
 
-  var SPECIES_ORDER = ['trike', 'trex', 'leso', 'stego', 'anky'];
+  var SPECIES_ORDER = ['trike', 'trex', 'leso', 'stego', 'anky', 'velo'];
+
+  var HOOK_MAX_STACKS = { small: 2, medium: 3 };
+  var HOOK_ESCAPE_RANGE = { small: [0.25, 0.45], medium: [0.45, 0.75] };
+
+  function hookSizeKey(unit) {
+    if (!unit) return null;
+    if (unit.size === 1) return 'small';
+    if (unit.size === 2) return 'medium';
+    return 'large';
+  }
 
   function key(x, y) { return x + ',' + y; }
   function isUnitLike(obj) {
@@ -257,7 +287,11 @@
           atkPenalty: 0,
           pierceUsed: false,
           ankyLock: null,
-          devour: null
+          devour: null,
+          assaultBonus: 0,
+          hook: null,
+          hookReceived: [],
+          hookEscapeRound: 0
         },
         turn: {
           moveLeft: d.move,
@@ -276,15 +310,16 @@
     var self = this;
     ['blue', 'red'].forEach(function (team) {
       var list = self.getTeamUnits(team);
-      var row = team === 'blue' ? 9 : 6;
+      var half = BOARD_SIZE / 2;
+      var row = team === 'blue' ? half + 1 : half - 2;
       var n = list.length;
-      var cols;
-      if (n === 1) cols = [8];
-      else if (n === 2) cols = [5, 10];
-      else cols = list.map(function (_, i) { return Math.round(((i + 1) * BOARD_SIZE) / (n + 1)); });
+      var cols = list.map(function (_, i) {
+        return Math.max(1, Math.min(BOARD_SIZE - 2, Math.round(((i + 1) * BOARD_SIZE) / (n + 1))));
+      });
       list.forEach(function (unit, i) {
         unit.x = cols[i];
-        unit.y = row;
+        // 大型单位锚点是左上角：红方需再上移 1 格，才能和蓝方形成镜像。
+        unit.y = (team === 'red' && unit.size >= 4) ? row - 1 : row;
         unit.facing = team === 'blue' ? 'N' : 'S';
       });
     });
@@ -313,8 +348,8 @@
 
   Game.prototype.getDeployCells = function (unit) {
     if (!unit || !unit.alive || this.phase !== 'deploy') return [];
-    var halfMin = unit.team === 'blue' ? 8 : 0;
-    var halfMax = unit.team === 'blue' ? 15 : 7;
+    var halfMin = unit.team === 'blue' ? BOARD_SIZE / 2 : 0;
+    var halfMax = unit.team === 'blue' ? BOARD_SIZE - 1 : BOARD_SIZE / 2 - 1;
     var cells = [];
     for (var y = 0; y < BOARD_SIZE; y++) {
       for (var x = 0; x < BOARD_SIZE; x++) {
@@ -336,8 +371,8 @@
     var unit = this.getUnit(unitId);
     if (!unit || !unit.alive) return { ok: false, error: '找不到该单位。', events: events };
     if (x < 0 || x >= BOARD_SIZE || y < 0 || y >= BOARD_SIZE) return { ok: false, error: '无效的位置。', events: events };
-    var halfMin = unit.team === 'blue' ? 8 : 0;
-    var halfMax = unit.team === 'blue' ? 15 : 7;
+    var halfMin = unit.team === 'blue' ? BOARD_SIZE / 2 : 0;
+    var halfMax = unit.team === 'blue' ? BOARD_SIZE - 1 : BOARD_SIZE / 2 - 1;
     var footprint = footprintCells(unit, x, y, unit.facing);
     if (!footprint.every(function (c) { return c.y >= halfMin && c.y <= halfMax; })) {
       return { ok: false, error: '整只恐龙都必须放在本方半场。', events: events };
@@ -356,8 +391,8 @@
     var unit = this.getUnit(unitId);
     if (!unit || !unit.alive) return { ok: false, error: '找不到该单位。', events: events };
     if (!DIRECTIONS[facing]) return { ok: false, error: '无效的朝向。', events: events };
-    var halfMin = unit.team === 'blue' ? 8 : 0;
-    var halfMax = unit.team === 'blue' ? 15 : 7;
+    var halfMin = unit.team === 'blue' ? BOARD_SIZE / 2 : 0;
+    var halfMax = unit.team === 'blue' ? BOARD_SIZE - 1 : BOARD_SIZE / 2 - 1;
     var footprint = footprintCells(unit, unit.x, unit.y, facing);
     if (!footprint.every(function (c) { return c.y >= halfMin && c.y <= halfMax; })) {
       return { ok: false, error: '转向后身体会越出本方半场。', events: events };
@@ -472,6 +507,7 @@
     if (this.phase !== 'battle') return { ok: false, error: '战斗已经结束。', events: events };
     if (!this.activeTeam) return { ok: false, error: '当前没有行动方。', events: events };
     var team = this.activeTeam;
+    this.advanceHookStatus(team, events);
     // 尾槌压制只持续到目标下一次行动结束。
     this.getTeamUnits(team).forEach(function (unit) {
       if (unit.status.ankyLock) unit.status.ankyLock = null;
@@ -512,7 +548,37 @@
       self.checkNaturalRecovery(unit, events);
     });
 
+    this.units.forEach(function (unit) {
+      if (!unit.alive || self.phase !== 'battle') return;
+      if (!unit.status.hook) return;
+      if (unit.skillReadyRound <= self.round) return;
+      unit.skillReadyRound += 1;
+      events.push({ type: 'status', unitId: unit.id, status: 'cooldown-paused' });
+    });
+
+    if (this.round >= 15) {
+      this.pushLog(events, '环境侵蚀：第 15 回合起，所有恐龙每回合失去 1 点生命。', 'damage');
+      this.units.forEach(function (unit) {
+        if (!unit.alive || self.phase !== 'battle') return;
+        self._damage(unit, 1, {
+          source: null,
+          kind: 'attrition',
+          isAttack: false,
+          ignoreArmor: true,
+          canBeGuarded: false,
+          countsAsHit: false,
+          allowDevour: false,
+          creditKill: false,
+          noThorns: true,
+          skipPhalanx: true,
+          deferVictory: true
+        }, events);
+      });
+      this.checkVictory(events);
+    }
+
     this.checkVictory(events);
+
     if (this.phase !== 'battle') return;
 
     this.round += 1;
@@ -547,7 +613,9 @@
   };
 
   Game.prototype.getMoveLeft = function (unit) {
-    return unit.turn ? Math.max(0, unit.turn.moveLeft) : unit.move;
+    var base = unit.turn ? Math.max(0, unit.turn.moveLeft) : unit.move;
+    if (unit.move >= 2 && this.getHookStacks(unit).length) base = Math.max(0, base - 1);
+    return base;
   };
 
   Game.prototype.isFormActive = function (unit) {
@@ -623,7 +691,9 @@
   Game.prototype.getAttackTargets = function (unit) {
     var self = this;
     if (this.phase !== 'battle' || !unit || !unit.alive) return [];
+    var sources = this.getHookSourceIds(unit);
     return this.getEnemies(unit.team).filter(function (enemy) {
+      if (sources.indexOf(enemy.id) >= 0) return false;
       return self.isAdjacent(unit, enemy) && !self.isLockedFromAttacking(unit, enemy);
     });
   };
@@ -643,7 +713,7 @@
     return this.getSideCells(unit).map(function (side) {
       for (var i = 0; i < footprint.length; i++) {
         var target = self.unitAt(footprint[i].x + side.x, footprint[i].y + side.y);
-        if (target && target.alive && target.team !== unit.team && !seen[target.id] && !self.isLockedFromAttacking(unit, target)) {
+        if (target && target.alive && target.team !== unit.team && !seen[target.id] && !self.isLockedFromAttacking(unit, target) && self.getHookSourceIds(unit).indexOf(target.id) < 0) {
           seen[target.id] = true;
           return target;
         }
@@ -681,6 +751,10 @@
     } else if (unit.type === 'anky') {
       result.targets = this.getAttackTargets(unit);
       if (result.targets.length === 0) { result.reason = '攻击范围内没有敌人'; return result; }
+    } else if (unit.type === 'velo') {
+      var hookCheck = this.canUseHook(unit);
+      if (!hookCheck.allowed) { result.reason = hookCheck.reason; return result; }
+      result.targets = [hookCheck.target];
     } else if (unit.type === 'stego') {
       if (this.isFormActive(unit)) { result.reason = '反击形态已开启'; return result; }
     } else if (unit.type === 'trike') {
@@ -720,8 +794,9 @@
       unit.turn.moveLeft += 2;
       unit.turn.extraMove += 2;
       unit.turn.skillUsed = true;
+      unit.status.assaultBonus = 1;
       unit.skillReadyRound = this.round + def.skillCd + 1;
-      this.pushLog(events, unit.name + ' 进入突袭状态：本回合行动力 +2，仍可攻击。', 'status');
+      this.pushLog(events, unit.name + ' 进入突袭状态：本回合行动力 +2，下一次攻击伤害 +1，仍可攻击。', 'status');
       events.push({ type: 'status', unitId: unit.id, status: 'assault' });
     } else if (unit.type === 'stego') {
       unit.status.formUntil = this.round + 1;
@@ -751,6 +826,12 @@
           this.addBleed(target, unit, events);
         }
       }
+    } else if (unit.type === 'velo') {
+      unit.turn.skillUsed = true;
+      var hookResult = this.useHook(unit, events);
+      if (!hookResult.ok) return { ok: false, error: hookResult.error, events: events };
+      unit.skillReadyRound = this.round + def.skillCd + 1;
+      this.consumeAction(unit);
     } else if (unit.type === 'anky') {
       unit.turn.skillUsed = true;
       unit.skillReadyRound = this.round + def.skillCd + 1;
@@ -815,6 +896,7 @@
     if (unit.turn.done || unit.turn.actionUsed) return { ok: false, error: '本单位本回合已结束行动。', events: events };
     var target = this.getUnit(targetId);
     if (!target || !target.alive || target.team === unit.team) return { ok: false, error: '请选择敌方单位。', events: events };
+    if (this.getHookSourceIds(unit).indexOf(target.id) >= 0) return { ok: false, error: '受钩挂影响，无法攻击施加者。', events: events };
     if (!this.isAdjacent(unit, target)) return { ok: false, error: '目标不在攻击范围内。', events: events };
     if (this.isLockedFromAttacking(unit, target)) return { ok: false, error: '你被尾槌压制，无法攻击这只甲龙。', events: events };
 
@@ -824,6 +906,18 @@
     events.push({ type: 'attack', unitId: unit.id, targetId: target.id, from: { x: unit.x, y: unit.y }, to: { x: target.x, y: target.y } });
 
     var raw = this.getAttack(unit);
+    if (unit.type === 'velo' && unit.status.hook) {
+      raw += 2;
+      this.pushLog(events, unit.name + ' 处于钩挂状态，攻击 +2。', 'hook');
+      events.push({ type: 'status', unitId: unit.id, status: 'hook-attack' });
+    }
+    if (unit.type === 'trex' && unit.status.assaultBonus) {
+      var bonus = unit.status.assaultBonus;
+      unit.status.assaultBonus = 0;
+      raw += bonus;
+      this.pushLog(events, unit.name + ' 的突袭蓄力生效，本次攻击伤害 +' + bonus + '。', 'status');
+      events.push({ type: 'status', unitId: unit.id, status: 'assault-used' });
+    }
     var pierce = false;
     var formAtHit = this.isFormActive(unit);
     if (formAtHit && !unit.status.pierceUsed && this.rng() < 1 / 8) {
@@ -837,7 +931,8 @@
       source: unit,
       kind: 'attack',
       isAttack: true,
-      allowDevour: true
+      allowDevour: true,
+      armorDamageMultiplier: unit.type === 'velo' ? 0.5 : 1
     }, events);
 
     if (!res.blocked) {
@@ -933,7 +1028,7 @@
     if (opts.isAttack && opts.source && target.type === 'trike' && !opts.skipPhalanx) {
       var phalanx = this.getPhalanxSize(target);
       if (phalanx >= 2 && this.isInFacingArc(target, opts.source)) {
-        var reduction = Math.min(5, phalanx + 1);
+        var reduction = Math.min(5, phalanx);
         amount = Math.max(0, amount - reduction);
         notes.push('方阵减伤 ' + reduction);
         this.pushLog(events, target.name + ' 的希腊方阵削减了 ' + reduction + ' 点伤害。', 'guard');
@@ -941,7 +1036,7 @@
     }
 
     if (target.type === 'anky' && target.armor > 0 && amount > 0 && !opts.ignoreArmor) {
-      var reduced = Math.max(1, Math.round(amount * 0.75));
+      var reduced = Math.max(1, Math.round(amount * 0.85));
       if (reduced < amount) notes.push('甲壳减伤 ' + (amount - reduced));
       amount = reduced;
     }
@@ -958,7 +1053,12 @@
       hpDamage = amount;
       target.hp -= hpDamage;
     } else {
-      armorDamage = Math.min(target.armor, amount);
+      if (opts.armorDamageMultiplier != null && opts.armorDamageMultiplier !== 1) {
+        armorDamage = Math.min(target.armor, Math.max(0, Math.round(amount * opts.armorDamageMultiplier)));
+        if (armorDamage < Math.min(target.armor, amount)) notes.push('脆弱之爪');
+      } else {
+        armorDamage = Math.min(target.armor, amount);
+      }
       target.armor -= armorDamage;
       hpDamage = amount - armorDamage;
       target.hp -= hpDamage;
@@ -1031,6 +1131,18 @@
     this.pushLog(events, '☠ ' + target.name + ' 被击败！', 'death');
     events.push({ type: 'death', unitId: target.id, x: target.x, y: target.y, team: target.team });
 
+    var self = this;
+    this.units.forEach(function (source) {
+      if (source.alive && source.status.hook && source.status.hook.targetId === target.id) {
+        self.endHook(source, 'target_removed', events);
+      }
+    });
+    if (target.status.hook) self.endHook(target, 'source_removed', events);
+    this.units.forEach(function (unit) {
+      if (!unit.status.hookReceived || !unit.status.hookReceived.length) return;
+      unit.status.hookReceived = unit.status.hookReceived.filter(function (stack) { return stack.sourceId !== target.id; });
+    });
+
     this.units.forEach(function (u) {
       if (u.status.ankyLock && u.status.ankyLock.sourceId === target.id) u.status.ankyLock = null;
     });
@@ -1038,7 +1150,7 @@
     if (killer && killer.alive && killer.team !== target.team && opts.creditKill !== false) {
       this.rewardKill(killer, target, opts, events);
     }
-    this.checkVictory(events);
+    if (!opts.deferVictory) this.checkVictory(events);
   };
 
   Game.prototype.rewardKill = function (killer, target, opts, events) {
@@ -1150,8 +1262,9 @@
   Game.prototype.getReachable = function (unit) {
     if (this.phase !== 'battle') return [];
     if (!unit || !unit.alive || !unit.turn || unit.turn.done || unit.turn.actionUsed) return [];
+    if (unit.status.hook) return [];
     if (unit.status.devour && unit.status.devour.active) return [];
-    var maxSteps = Math.max(0, unit.turn.moveLeft);
+    var maxSteps = this.getMoveLeft(unit);
     if (maxSteps === 0) return [];
     var startKey = key(unit.x, unit.y);
     var queue = [{ x: unit.x, y: unit.y, dist: 0, path: [] }];
@@ -1200,6 +1313,7 @@
     unit.turn.moved = true;
     this.pushLog(events, unit.name + ' 移动到 (' + (x + 1) + ', ' + (y + 1) + ')。', 'move');
     events.push({ type: 'move', unitId: unit.id, from: from, to: { x: x, y: y }, path: dest.path });
+    this.followHookTarget(unit, from.x, from.y, events);
     return { ok: true, events: events };
   };
 
@@ -1244,13 +1358,222 @@
     events.push({ type: 'gameover', winner: this.winner, text: text });
   };
 
+
+  Game.prototype.getHookFrontTarget = function (unit) {
+    if (!unit || !unit.alive) return null;
+    var dir = DIRECTIONS[unit.facing];
+    if (!dir) return null;
+    var target = this.unitAt(unit.x + dir.x, unit.y + dir.y);
+    if (!target || !target.alive || target.team === unit.team) return null;
+    return target;
+  };
+
+  Game.prototype.getHookStacks = function (unit) {
+    return (unit && unit.status && Array.isArray(unit.status.hookReceived)) ? unit.status.hookReceived : [];
+  };
+
+  Game.prototype.getHookMaxStacks = function (target) {
+    return HOOK_MAX_STACKS[hookSizeKey(target)] || 0;
+  };
+
+  Game.prototype.getHookSourceIds = function (unit) {
+    var seen = {};
+    return this.getHookStacks(unit).map(function (stack) { return stack.sourceId; }).filter(function (id) {
+      if (seen[id]) return false;
+      seen[id] = true;
+      return true;
+    });
+  };
+
+  Game.prototype.canUseHook = function (unit) {
+    if (!unit || !unit.alive) return { allowed: false, reason: '找不到该单位。' };
+    if (this.phase !== 'battle') return { allowed: false, reason: '战斗已经结束。' };
+    if (unit.team !== this.activeTeam) return { allowed: false, reason: '当前不是本方行动回合。' };
+    if (unit.turn.done || unit.turn.actionUsed) return { allowed: false, reason: '本单位本回合已结束行动。' };
+    if (unit.status.devour && unit.status.devour.active) return { allowed: false, reason: '正在吞食，无法行动。' };
+    if (unit.status.hook) return { allowed: false, reason: '钩挂中，技能不充能。' };
+    if (unit.skillReadyRound > this.round) return { allowed: false, reason: '冷却中 · 第 ' + unit.skillReadyRound + ' 回合可用' };
+    var target = this.getHookFrontTarget(unit);
+    if (!target) return { allowed: false, reason: '朝向一格内没有敌人。' };
+    if (target.size < 4 && this.getHookStacks(target).length >= this.getHookMaxStacks(target)) {
+      return { allowed: false, reason: '目标受钩挂层数已满。' };
+    }
+    return { allowed: true, target: target };
+  };
+
+  Game.prototype.useHook = function (unit, events) {
+    var check = this.canUseHook(unit);
+    if (!check.allowed) return { ok: false, error: check.reason, events: events };
+    var target = check.target;
+    if (target.size >= 4) {
+      this.pushLog(events, unit.name + ' 的镰锯扑钩被 ' + target.name + ' 的巨大身躯弹开！', 'hook');
+      this._damage(unit, 3, { source: target, kind: 'hook', isAttack: false, allowDevour: false }, events);
+      if (target.alive) {
+        this._damage(target, 1, { source: unit, kind: 'hook', isAttack: false, allowDevour: false }, events);
+      }
+      var dir = DIRECTIONS[unit.facing];
+      var bx = unit.x - (dir ? dir.x : 0);
+      var by = unit.y - (dir ? dir.y : 0);
+      if (unit.alive && this.canPlaceUnit(unit, bx, by, unit.facing, true)) {
+        var from = { x: unit.x, y: unit.y };
+        unit.x = bx;
+        unit.y = by;
+        this.pushLog(events, unit.name + ' 被反震后退一格。', 'hook');
+        events.push({ type: 'move', unitId: unit.id, from: from, to: { x: bx, y: by }, path: [{ x: bx, y: by }], forced: true });
+      } else if (unit.alive) {
+        this.pushLog(events, unit.name + ' 退路被阻挡，额外受到 1 点伤害。', 'hook');
+        this._damage(unit, 1, { source: target, kind: 'hook', isAttack: false, allowDevour: false }, events);
+      }
+      return { ok: true, events: events, large: true };
+    }
+    target.status.hookReceived.push({ sourceId: unit.id, createdTurn: this.round });
+    unit.status.hook = { targetId: target.id, turnsHeld: 0 };
+    this.pushLog(events, unit.name + ' 对 ' + target.name + ' 施加受钩挂，并进入钩挂状态。', 'hook');
+    events.push({ type: 'hook_created', sourceId: unit.id, targetId: target.id, stacks: target.status.hookReceived.length });
+    if (target.status.hookReceived.length === 1) {
+      events.push({ type: 'status', unitId: target.id, status: 'hook-received', stacks: 1 });
+    }
+    return { ok: true, events: events, target: target };
+  };
+
+  Game.prototype.endHook = function (unit, reason, events) {
+    if (!unit || !unit.status.hook) return false;
+    var target = this.getUnit(unit.status.hook.targetId);
+    if (target) {
+      for (var i = target.status.hookReceived.length - 1; i >= 0; i--) {
+        if (target.status.hookReceived[i].sourceId === unit.id) {
+          target.status.hookReceived.splice(i, 1);
+          break;
+        }
+      }
+    }
+    unit.status.hook = null;
+    unit.skillReadyRound = this.round + SPECIES[unit.type].skillCd + 1;
+    this.pushLog(events || [], unit.name + ' 的钩挂状态结束（' + (reason === 'expired' ? '自动松脱' : reason === 'escaped' ? '目标摆脱' : '手动解除') + '）。', 'hook');
+    (events || []).push({ type: 'hook_ended', sourceId: unit.id, reason: reason });
+    return true;
+  };
+
+  Game.prototype.canReleaseHook = function (unitId) {
+    var unit = this.getUnit(unitId);
+    if (!unit || !unit.alive || !unit.status.hook) return { allowed: false, reason: '当前没有钩挂。' };
+    if (this.phase !== 'battle' || unit.team !== this.activeTeam) return { allowed: false, reason: '当前不是本方行动回合。' };
+    if (unit.turn.done || unit.turn.actionUsed) return { allowed: false, reason: '本单位本回合已结束行动。' };
+    if (unit.status.hook.turnsHeld < 1) return { allowed: false, reason: '钩挂持续 1 回合后才能手动解除。' };
+    return { allowed: true };
+  };
+
+  Game.prototype.releaseHook = function (unitId) {
+    var events = [];
+    var unit = this.getUnit(unitId);
+    var check = this.canReleaseHook(unitId);
+    if (!check.allowed) return { ok: false, error: check.reason, events: events };
+    this.consumeAction(unit);
+    this.endHook(unit, 'manual', events);
+    return { ok: true, events: events };
+  };
+
+  Game.prototype.getHookEscapeChance = function (unit) {
+    var key = hookSizeKey(unit);
+    var range = HOOK_ESCAPE_RANGE[key];
+    var max = HOOK_MAX_STACKS[key];
+    var stacks = this.getHookStacks(unit).length;
+    if (!range || !max || !stacks) return 0;
+    if (max <= 1) return range[1];
+    return range[0] + (range[1] - range[0]) * (stacks - 1) / (max - 1);
+  };
+
+  Game.prototype.canEscapeHook = function (unitId) {
+    var unit = this.getUnit(unitId);
+    if (!unit || !unit.alive) return { allowed: false, reason: '找不到该单位。' };
+    if (!this.getHookStacks(unit).length) return { allowed: false, reason: '没有受钩挂效果。' };
+    if (this.phase !== 'battle' || unit.team !== this.activeTeam) return { allowed: false, reason: '当前不是本方行动回合。' };
+    if (unit.turn.done || unit.turn.actionUsed) return { allowed: false, reason: '本单位本回合已结束行动。' };
+    if (unit.status.hookEscapeRound === this.round) return { allowed: false, reason: '本回合已经尝试过摆脱。' };
+    return { allowed: true };
+  };
+
+  Game.prototype.escapeHook = function (unitId) {
+    var events = [];
+    var unit = this.getUnit(unitId);
+    var check = this.canEscapeHook(unitId);
+    if (!check.allowed) return { ok: false, error: check.reason, events: events };
+    var chance = this.getHookEscapeChance(unit);
+    var stacks = this.getHookStacks(unit);
+    var stack = stacks[stacks.length - 1];
+    var sourceId = stack ? stack.sourceId : null;
+    var source = sourceId ? this.getUnit(sourceId) : null;
+    this.consumeAction(unit);
+    unit.status.hookEscapeRound = this.round;
+    var success = this.rng() < chance;
+    this.pushLog(events, unit.name + ' 尝试摆脱受钩挂（成功率 ' + Math.round(chance * 100) + '%）。', 'hook');
+    if (success) {
+      unit.status.hookReceived.pop();
+      if (source && source.status.hook && source.status.hook.targetId === unit.id) {
+        source.status.hook = null;
+        source.skillReadyRound = this.round + SPECIES[source.type].skillCd + 1;
+      }
+      if (!unit.status.hookReceived.length) {
+        if (source && source.alive) {
+          this._damage(source, 2, { source: unit, kind: 'hook', isAttack: false, allowDevour: false }, events);
+        }
+      }
+      this.pushLog(events, unit.name + ' 摆脱成功，失去一层受钩挂。', 'hook');
+      events.push({ type: 'hook_ended', sourceId: sourceId, reason: 'escaped' });
+    } else {
+      this.pushLog(events, unit.name + ' 摆脱失败。', 'hook');
+    }
+    events.push({ type: 'escape_resolved', unitId: unit.id, success: success, removedLinkId: undefined, stacks: unit.status.hookReceived.length });
+    return { ok: true, events: events, success: success };
+  };
+
+  Game.prototype.advanceHookStatus = function (team, events) {
+    var self = this;
+    this.units.forEach(function (unit) {
+      if (!unit.alive || !unit.status.hook) return;
+      var target = self.getUnit(unit.status.hook.targetId);
+      var hasStack = target && target.alive && target.status.hookReceived.some(function (s) { return s.sourceId === unit.id; });
+      if (!hasStack) { unit.status.hook = null; return; }
+      if (unit.team !== team) return;
+      unit.status.hook.turnsHeld += 1;
+      if (unit.status.hook.turnsHeld >= 3) {
+        self.endHook(unit, 'expired', events);
+      }
+    });
+  };
+
+  Game.prototype.followHookTarget = function (target, fromX, fromY, events) {
+    var self = this;
+    var dx = target.x - fromX;
+    var dy = target.y - fromY;
+    if (!dx && !dy) return;
+    this.units.forEach(function (source) {
+      if (!source.alive || !source.status.hook || source.team === target.team) return;
+      if (source.status.hook.targetId !== target.id) return;
+      if (!self.canPlaceUnit(source, source.x + dx, source.y + dy, source.facing, true)) return;
+      var from = { x: source.x, y: source.y };
+      source.x += dx;
+      source.y += dy;
+      self.pushLog(events, source.name + ' 被钩挂牵引，跟随 ' + target.name + ' 移动。', 'hook');
+      events.push({ type: 'move', unitId: source.id, from: from, to: { x: source.x, y: source.y }, path: [{ x: source.x, y: source.y }], follow: true });
+    });
+  };
+
   Game.prototype.getStatusList = function (unit) {
     var list = [];
     if (!unit || !unit.alive) return list;
     if (unit.status.guard) list.push({ key: 'guard', label: '防御反击待发', short: '盾' });
+    if (unit.status.hook) {
+      var hookedTarget = this.getUnit(unit.status.hook.targetId);
+      list.push({ key: 'hook', label: '钩挂 · ' + (hookedTarget ? hookedTarget.name : '目标'), short: '钩' });
+      if (unit.skillReadyRound > this.round) list.push({ key: 'hook-cooldown', label: '钩挂 · 技能不充能', short: '滞' });
+    }
+    var received = this.getHookStacks(unit);
+    if (received.length) list.push({ key: 'hook-received', label: '受钩挂 ' + received.length + ' 层', short: '受' });
     if (unit.status.bleed.length) list.push({ key: 'bleed', label: '流血 ' + unit.status.bleed.length + ' 层', short: '血' });
     if (this.isFormActive(unit)) list.push({ key: 'form', label: '反击形态', short: '刃' });
     if (unit.status.ankyLock) list.push({ key: 'lock', label: '被尾槌压制', short: '晕' });
+    if (unit.status.assaultBonus) list.push({ key: 'assault', label: '下次攻击 +1', short: '+1' });
     if (unit.status.devour) {
       if (unit.status.devour.active) list.push({ key: 'devour', label: '吞食 ' + unit.status.devour.progress + '/' + unit.status.devour.needed, short: '食' });
       else list.push({ key: 'devour-pause', label: '吞食中断 ' + unit.status.devour.progress + '/' + unit.status.devour.needed, short: '停' });

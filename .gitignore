@@ -1,0 +1,9 @@
+node_modules/
+.npm-cache/
+.tools/
+.edge-profile/
+.chrome-cdp/
+.edge-cdp/
+*.log
+*-report.html
+shot-*.png

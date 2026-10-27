@@ -1,0 +1,14 @@
+node_modules
+npm-debug.log
+.git
+.gitignore
+.edge-profile
+.chrome-cdp
+.edge-cdp
+.npm-cache
+.tools
+tests
+shot-*.png
+ui-report*.html
+online-ui-report.html
+ai-report.html

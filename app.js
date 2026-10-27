@@ -8,14 +8,15 @@
   var SPECIES = E.SPECIES;
   var ORDER = E.SPECIES_ORDER;
   var TEAM_INFO = E.TEAM_INFO;
+  var BOARD_SIZE = E.BOARD_SIZE;
   var DIRECTIONS = E.DIRECTIONS;
   var FACING_ORDER = E.FACING_ORDER;
   var FACING_ANGLE = { N: -90, E: 0, S: 90, W: 180 };
   var CAN_HOVER = !!(window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches);
 
   var DEFAULT_SETUP = {
-    blue: { trike: 1, trex: 0, leso: 0, stego: 1, anky: 1 },
-    red: { trike: 0, trex: 1, leso: 1, stego: 0, anky: 0 }
+    blue: { trike: 1, trex: 0, leso: 0, stego: 1, anky: 1, velo: 0 },
+    red: { trike: 0, trex: 1, leso: 1, stego: 0, anky: 0, velo: 0 }
   };
 
   var DINO_SVG = {
@@ -23,7 +24,8 @@
     trex: '<svg viewBox="0 0 64 64" aria-hidden="true"><path fill="currentColor" d="M4 48c7-1 10-4 12-9l4-10 8-6 9 1 5-5 9 3 1 6-5 4 1 5-7 6-3 12h-7l2-11-8 4-4 9h-7l4-11-9-2z"/><path fill="currentColor" d="M43 25l8-3 6 2-4 3z" opacity=".72"/><path fill="currentColor" d="M47 30l3 2-3 1zM44 33l3 2-3 1z" opacity=".8"/><path fill="currentColor" d="M34 39l5 1-2 5-4-1z" opacity=".8"/><circle cx="53" cy="25" r="1.4" fill="#081310"/></svg>',
     leso: '<svg viewBox="0 0 64 64" aria-hidden="true"><path fill="currentColor" d="M6 48c8-1 15-7 19-14l-1-8 4-10 7 3-2 10 7 6 12 2-1 8-15 1-5 9-6-1 2-8-12 8-6-2 4-8-7 1z"/><path fill="currentColor" d="M28 19l-2-9 6 5 5-3-2 9z" opacity=".65"/><path fill="currentColor" d="M40 45l5 2-1 7-5-1z" opacity=".7"/><circle cx="30" cy="17" r="1.4" fill="#081310"/></svg>',
     stego: '<svg viewBox="0 0 64 64" aria-hidden="true"><path fill="currentColor" d="M7 46c2-6 7-10 14-11l5-8 8 5 8-1-2 7 6 6-6 6-2 9-7-4-2 5-7-6-10 2z"/><path fill="currentColor" opacity=".72" d="M21 28l4-11 4 9zM30 23l4-10 4 9zM39 23l4-9 4 8z"/><path fill="currentColor" d="M9 45l-6-6 1 9-5 1 7 3z"/><path fill="currentColor" d="M14 29l-4-7 7 2 1 6z" opacity=".65"/><circle cx="48" cy="39" r="1.4" fill="#081310"/></svg>',
-    anky: '<svg viewBox="0 0 64 64" aria-hidden="true"><path fill="currentColor" d="M5 48c1-6 5-9 11-10l10-7 10 3 6-2 6 5 5 1 5 4-4 4-1 7-7 1-3-5-13 4-6 7-6-1 3-8-8 1z"/><path fill="currentColor" d="M4 50c-1-3 1-6 4-7 3-1 5 1 4 4-1 2-5 4-8 3z"/><path fill="currentColor" opacity=".7" d="M24 33l4-5 4 5zM33 32l4-5 4 5zM42 33l4-5 4 5z"/><path fill="currentColor" d="M48 42l5-1-1 7-5 1z" opacity=".65"/><circle cx="40" cy="37" r="1.4" fill="#081310"/></svg>'
+    anky: '<svg viewBox="0 0 64 64" aria-hidden="true"><path fill="currentColor" d="M5 48c1-6 5-9 11-10l10-7 10 3 6-2 6 5 5 1 5 4-4 4-1 7-7 1-3-5-13 4-6 7-6-1 3-8-8 1z"/><path fill="currentColor" d="M4 50c-1-3 1-6 4-7 3-1 5 1 4 4-1 2-5 4-8 3z"/><path fill="currentColor" opacity=".7" d="M24 33l4-5 4 5zM33 32l4-5 4 5zM42 33l4-5 4 5z"/><path fill="currentColor" d="M48 42l5-1-1 7-5 1z" opacity=".65"/><circle cx="40" cy="37" r="1.4" fill="#081310"/></svg>',
+    velo: '<svg viewBox="0 0 64 64" aria-hidden="true"><path fill="currentColor" d="M7 47c8-1 14-5 18-11l-2-8 4-9 7 2-2 10 7 6 12 3-1 8-15-1-5 9-6-1 2-8-13 8-6-2 4-8-7 1z"/><path fill="currentColor" d="M31 20l-3-10 7 6 6-4-2 10z" opacity=".6"/><path fill="currentColor" d="M43 45l6 2-2 8-5-1zM47 40l4 3-4 2z" opacity=".8"/><circle cx="34" cy="18" r="1.4" fill="#081310"/></svg>'
   };
 
   var state = {
@@ -64,6 +66,7 @@
       presetRoom: null,
       lastVersion: 0,
       lastToast: '',
+      rematch: null,
       testMode: false,
       debugMessages: []
     }
@@ -139,15 +142,21 @@
     injectHeroIcons();
     bindEvents();
     renderBuilder();
+    if (isStaticOnlyHost()) {
+      var staticOnlineCard = document.querySelector('.mode-card[data-mode="online"]');
+      if (staticOnlineCard) staticOnlineCard.remove();
+    }
     autoSelectForTurn();
     initOnlineDefaults();
+    initBoardZoomPreference();
     updateStartCTA();
     try {
       var params = new URLSearchParams(location.search);
       if (params.get('play') === '1') {
         startGame();
-      } else if (params.get('room') || readOnlineSession()) {
-        if (params.get('room')) state.online.presetRoom = String(params.get('room')).toUpperCase();
+      } else if (params.get('room')) {
+        // 只有邀请链接才自动打开大厅；旧会话不再劫持首页。
+        state.online.presetRoom = String(params.get('room')).toUpperCase().slice(0, 5);
         openOnlineLobby();
       }
     } catch (err) {}
@@ -159,10 +168,10 @@
       'blueTeamPanel', 'redTeamPanel', 'blueKills', 'redKills', 'board', 'grid', 'tokenLayer',
       'corpseLayer', 'effectLayer', 'moveLayer', 'boardHint', 'detailPanel', 'actionPanel', 'logList', 'logMeta',
       'boardViewport', 'btnZoomBoard',
-      'btnEndTurnTop', 'btnSound', 'btnRules', 'btnRestart', 'btnStart', 'btnRulesStart',
+      'btnEndTurnTop', 'btnSound', 'btnRules', 'btnRestart', 'btnStart', 'btnStartBottom', 'btnRulesStart',
       'btnRandom', 'btnDefault', 'buildTeams', 'startWarning', 'modeSelect', 'rulesModal',
       'rulesTabs', 'rulesBody', 'btnCloseRules', 'confirmModal', 'btnConfirmLeave', 'btnCancelLeave',
-      'gameOver', 'resultSigil', 'resultTitle', 'resultSub', 'resultStats', 'btnRematch', 'btnAdjust',
+      'gameOver', 'resultSigil', 'resultTitle', 'resultSub', 'resultStats', 'rematchStatus', 'btnRematch', 'btnAdjust',
       'toast', 'spores', 'onlineBadge', 'onlineLobby', 'onlineConnect', 'onlineRoomPanel', 'onlineReconnect',
       'onlineName', 'onlineCode', 'onlineConnectHint', 'btnCreateRoom', 'btnJoinRoom', 'btnCloseOnline',
       'onlineRoomCode', 'btnCopyCode', 'btnCopyLink', 'onlineConnState', 'roomPlayers', 'onlineLineup',
@@ -171,8 +180,11 @@
     ].forEach(function (id) { els[id] = document.getElementById(id); });
   }
 
-  function setBoardZoom(on) {
+  function setBoardZoom(on, persist) {
     state.boardZoom = !!on;
+    if (persist !== false && !state.online.testMode) {
+      try { localStorage.setItem('dino-board-zoom', state.boardZoom ? '1' : '0'); } catch (err) {}
+    }
     if (!els.boardViewport || !els.btnZoomBoard) return;
     els.boardViewport.classList.toggle('zoomed', state.boardZoom);
     els.btnZoomBoard.setAttribute('aria-pressed', state.boardZoom ? 'true' : 'false');
@@ -200,8 +212,8 @@
     var unit = state.game && state.game.getUnit(state.selectedId);
     if (unit && unit.alive) {
       var b = state.game.getUnitBounds(unit);
-      cx = (b.minX + b.maxX + 1) / 2 / 16;
-      cy = (b.minY + b.maxY + 1) / 2 / 16;
+      cx = (b.minX + b.maxX + 1) / 2 / BOARD_SIZE;
+      cy = (b.minY + b.maxY + 1) / 2 / BOARD_SIZE;
     }
     var boardLeft = br.left - vr.left + vp.scrollLeft;
     var boardTop = br.top - vr.top + vp.scrollTop;
@@ -212,6 +224,30 @@
       top: Math.max(0, top),
       behavior: 'smooth'
     });
+  }
+
+  function initBoardZoomPreference() {
+    if (state.online.testMode || window.innerWidth > 860) return;
+    var saved = null;
+    try { saved = localStorage.getItem('dino-board-zoom'); } catch (err) {}
+    if (saved === '1') setBoardZoom(true, false);
+  }
+
+  function maybeShowZoomHint() {
+    if (state.boardZoom || window.innerWidth > 860 || state.online.testMode) return;
+    try {
+      if (localStorage.getItem('dino-board-zoom') !== null) return;
+      if (localStorage.getItem('dino-board-zoom-hint') === '1') return;
+      localStorage.setItem('dino-board-zoom-hint', '1');
+    } catch (err) { return; }
+    setTimeout(function () {
+      toast('小屏可点棋盘上方「放大」，设置会记住');
+    }, 900);
+  }
+
+  function afterBoardShown() {
+    if (state.boardZoom) setTimeout(centerBoardViewportOnSelection, 120);
+    maybeShowZoomHint();
   }
 
   function makeSpores() {
@@ -241,9 +277,9 @@
       for (var x = 0; x < E.BOARD_SIZE; x++) {
         var cell = document.createElement('div');
         cell.className = 'cell';
-        if (y < 8) cell.classList.add('home-red');
+        if (y < BOARD_SIZE / 2) cell.classList.add('home-red');
         else cell.classList.add('home-blue');
-        if (y === 7 || y === 8) cell.classList.add('center-row');
+        if (y === BOARD_SIZE / 2 - 1 || y === BOARD_SIZE / 2) cell.classList.add('center-row');
         cell.dataset.x = x;
         cell.dataset.y = y;
         cell.setAttribute('role', 'gridcell');
@@ -310,6 +346,7 @@
       renderBuilder();
     });
     els.btnStart.addEventListener('click', handleStartPressed);
+    if (els.btnStartBottom) els.btnStartBottom.addEventListener('click', handleStartPressed);
 
     els.btnCreateRoom.addEventListener('click', createOnlineRoom);
     els.btnJoinRoom.addEventListener('click', joinOnlineRoom);
@@ -381,7 +418,7 @@
       setBoardZoom(!state.boardZoom);
     });
     window.addEventListener('resize', function () {
-      if (window.innerWidth > 860 && state.boardZoom) setBoardZoom(false);
+      if (window.innerWidth > 860 && state.boardZoom) setBoardZoom(false, false);
     });
 
     els.btnEndTurnTop.addEventListener('click', function () { endTeamTurn(); });
@@ -398,8 +435,13 @@
 
     els.btnRematch.addEventListener('click', function () {
       if (state.mode === 'online' && state.online.code) {
-        sendOnline({ type: 'back-to-lobby' });
-        toast('正在返回房间…');
+        var rematch = state.online.rematch || {};
+        if (rematch[state.online.team]) {
+          toast('已发送再战请求，正在等待对手');
+          return;
+        }
+        sendOnline({ type: 'rematch-request' });
+        toast('已发送再战请求');
         return;
       }
       els.gameOver.classList.add('hidden');
@@ -417,6 +459,13 @@
         if (!els.rulesModal.classList.contains('hidden')) { closeRules(); return; }
         if (!els.confirmModal.classList.contains('hidden')) { els.confirmModal.classList.add('hidden'); return; }
         if (state.skillMode) { state.skillMode = null; renderAll(); return; }
+        if (state.deployPreview) {
+          state.deployPreview = null;
+          state.deployHover = null;
+          renderAll();
+          toast('已取消落位预览');
+          return;
+        }
       }
       if ((e.key === 'e' || e.key === 'E') && !e.metaKey && !e.ctrlKey && !e.altKey) {
         if (state.game && state.game.phase === 'battle' && isHumanTurn() && !isModalOpen()) {
@@ -497,9 +546,11 @@
     if (state.mode === 'online') {
       var canOnline = onlineAvailable();
       els.btnStart.disabled = !canOnline;
+      if (els.btnStartBottom) els.btnStartBottom.disabled = !canOnline;
       els.startWarning.textContent = canOnline ? '' : '联网对战需要通过 node server.js 启动';
     } else {
       els.btnStart.disabled = !valid;
+      if (els.btnStartBottom) els.btnStartBottom.disabled = !valid;
       if (!valid) {
         if (blueCap === 0 || redCap === 0) els.startWarning.textContent = '双方都至少需要一只恐龙';
         else els.startWarning.textContent = '队伍容量超过上限';
@@ -552,6 +603,7 @@
     autoSelectForTurn();
     renderAll();
     appendEvents(state.game.startupEvents || []);
+    afterBoardShown();
     Sound.click();
     setTimeout(function () {
       if (!state.game) return;
@@ -569,6 +621,16 @@
     state.started = false;
     state.selectedId = null;
     state.skillMode = null;
+    state.deployPreview = null;
+    state.deployHover = null;
+    state.online.rematch = null;
+    if (state.mode === 'online') state.mode = 'ai';
+    if (els.modeSelect) {
+      els.modeSelect.querySelectorAll('.mode-card').forEach(function (card) {
+        card.classList.toggle('active', card.dataset.mode === state.mode);
+      });
+    }
+    updateStartCTA();
     els.battleApp.classList.add('hidden');
     els.gameOver.classList.add('hidden');
     els.onlineLobby.classList.add('hidden');
@@ -657,6 +719,10 @@
         var selected2 = g.getUnit(state.selectedId);
         els.turnSub.textContent = selected2 && selected2.team === g.activeTeam ? '已选择 ' + selected2.name + ' · 点击高亮格行动' : '选择一只恐龙开始行动';
       }
+      if (g.round >= 15) {
+        banner.classList.add('attrition');
+        els.turnSub.textContent += ' · 环境侵蚀：每回合 -1 生命';
+      }
     }
 
     var canEnd = g.phase === 'battle' && isHumanTurn() && !state.busy;
@@ -676,6 +742,8 @@
     var info = TEAM_INFO[team];
     var units = g.getTeamUnits(team);
     var alive = units.filter(function (u) { return u.alive; }).length;
+    var secretDeploy = state.mode === 'online' && g.phase === 'deploy' &&
+      state.online.team && team !== state.online.team;
     var subline = team === 'blue' ? 'VERDANT COVENANT' : 'EMBER CLAN';
     if (state.mode === 'online') {
       var op = onlinePlayer(team);
@@ -687,7 +755,9 @@
       '<div class="team-head-copy"><strong>' + info.name + '</strong><span>' + subline + '</span></div>' +
       '<div class="team-alive"><b>' + alive + '<span style="font-size:9px;color:var(--muted-2)">/' + units.length + '</span></b><span>存活</span></div>' +
     '</div><div class="roster">';
-    if (!units.length) {
+    if (secretDeploy) {
+      html += '<div class="secret-roster"><strong>对手正在布阵</strong><span>位置与朝向保密，开战后公开</span></div>';
+    } else if (!units.length) {
       html += '<div class="empty-roster">暂无单位</div>';
     } else {
       units.forEach(function (unit) {
@@ -761,7 +831,7 @@
       g.getFootprint(t).forEach(function (c) { skillMap[c.x + ',' + c.y] = true; });
     });
     var selectedMap = {};
-    if (selected) g.getFootprint(selected).forEach(function (c) { selectedMap[c.x + ',' + c.y] = true; });
+    if (selected && !selected.hidden) g.getFootprint(selected).forEach(function (c) { selectedMap[c.x + ',' + c.y] = true; });
 
     var cells = els.grid.children;
     for (var i = 0; i < cells.length; i++) {
@@ -777,7 +847,7 @@
       }
       if (selectedMap[k]) cell.classList.add('selected-cell');
       if (deploying && selected && canDeployUnit(selected)) {
-        var inDeployHalf = selected.team === 'blue' ? y >= 8 : y < 8;
+        var inDeployHalf = selected.team === 'blue' ? y >= BOARD_SIZE / 2 : y < BOARD_SIZE / 2;
         if (inDeployHalf) cell.classList.add('deploy-zone');
       }
       if (deployMap[k]) cell.classList.add('deploy-range');
@@ -829,15 +899,15 @@
     });
     var ghost = document.createElement('span');
     ghost.className = 'move-ghost deploy-ghost' + (state.deployPreview ? ' preview' : '');
-    ghost.style.left = (b.minX / 16 * 100) + '%';
-    ghost.style.top = (b.minY / 16 * 100) + '%';
-    ghost.style.width = ((b.maxX - b.minX + 1) / 16 * 100) + '%';
-    ghost.style.height = ((b.maxY - b.minY + 1) / 16 * 100) + '%';
+    ghost.style.left = (b.minX / BOARD_SIZE * 100) + '%';
+    ghost.style.top = (b.minY / BOARD_SIZE * 100) + '%';
+    ghost.style.width = ((b.maxX - b.minX + 1) / BOARD_SIZE * 100) + '%';
+    ghost.style.height = ((b.maxY - b.minY + 1) / BOARD_SIZE * 100) + '%';
     els.moveLayer.appendChild(ghost);
     var dot = document.createElement('span');
     dot.className = 'deploy-anchor-dot';
-    dot.style.left = ((target.x + 0.5) / 16 * 100) + '%';
-    dot.style.top = ((target.y + 0.5) / 16 * 100) + '%';
+    dot.style.left = ((target.x + 0.5) / BOARD_SIZE * 100) + '%';
+    dot.style.top = ((target.y + 0.5) / BOARD_SIZE * 100) + '%';
     els.moveLayer.appendChild(dot);
   }
 
@@ -882,16 +952,16 @@
       var overlapsSelf = !(b.maxX < current.minX || b.minX > current.maxX || b.maxY < current.minY || b.minY > current.maxY);
       var ghost = document.createElement('span');
       ghost.className = 'move-ghost' + (overlapsSelf ? ' covered' : '');
-      ghost.style.left = (b.minX / 16 * 100) + '%';
-      ghost.style.top = (b.minY / 16 * 100) + '%';
-      ghost.style.width = ((b.maxX - b.minX + 1) / 16 * 100) + '%';
-      ghost.style.height = ((b.maxY - b.minY + 1) / 16 * 100) + '%';
+      ghost.style.left = (b.minX / BOARD_SIZE * 100) + '%';
+      ghost.style.top = (b.minY / BOARD_SIZE * 100) + '%';
+      ghost.style.width = ((b.maxX - b.minX + 1) / BOARD_SIZE * 100) + '%';
+      ghost.style.height = ((b.maxY - b.minY + 1) / BOARD_SIZE * 100) + '%';
       frag.appendChild(ghost);
 
       var marker = document.createElement('span');
       marker.className = 'move-marker' + (overlapsSelf ? ' covered' : '');
-      marker.style.left = ((b.minX + b.maxX + 1) / 2 / 16 * 100) + '%';
-      marker.style.top = ((b.minY + b.maxY + 1) / 2 / 16 * 100) + '%';
+      marker.style.left = ((b.minX + b.maxX + 1) / 2 / BOARD_SIZE * 100) + '%';
+      marker.style.top = ((b.minY + b.maxY + 1) / 2 / BOARD_SIZE * 100) + '%';
       marker.textContent = String(dest.dist);
       frag.appendChild(marker);
     });
@@ -902,7 +972,7 @@
     var g = state.game;
     var html = '';
     g.corpses.forEach(function (corpse) {
-      html += '<span class="corpse" style="left:' + ((corpse.x + 0.5) / 16 * 100) + '%;top:' + ((corpse.y + 0.5) / 16 * 100) + '%;" title="' + corpse.name + '的尸体"><span>☠</span></span>';
+      html += '<span class="corpse" style="left:' + ((corpse.x + 0.5) / BOARD_SIZE * 100) + '%;top:' + ((corpse.y + 0.5) / BOARD_SIZE * 100) + '%;" title="' + corpse.name + '的尸体"><span>☠</span></span>';
     });
     els.corpseLayer.innerHTML = html;
   }
@@ -912,6 +982,11 @@
     var aliveIds = {};
     g.units.forEach(function (unit) {
       if (!unit.alive) return;
+      if (unit.hidden) {
+        var hiddenToken = els.tokenLayer.querySelector('.token[data-id="' + unit.id + '"]');
+        if (hiddenToken && hiddenToken.parentNode) hiddenToken.parentNode.removeChild(hiddenToken);
+        return;
+      }
       aliveIds[unit.id] = true;
       var token = els.tokenLayer.querySelector('.token[data-id="' + unit.id + '"]');
       if (!token) {
@@ -923,10 +998,10 @@
         els.tokenLayer.appendChild(token);
       }
       var bounds = g.getUnitBounds(unit);
-      token.style.left = (bounds.minX / 16 * 100) + '%';
-      token.style.top = (bounds.minY / 16 * 100) + '%';
-      token.style.width = (bounds.w / 16 * 100) + '%';
-      token.style.height = (bounds.h / 16 * 100) + '%';
+      token.style.left = (bounds.minX / BOARD_SIZE * 100) + '%';
+      token.style.top = (bounds.minY / BOARD_SIZE * 100) + '%';
+      token.style.width = (bounds.w / BOARD_SIZE * 100) + '%';
+      token.style.height = (bounds.h / BOARD_SIZE * 100) + '%';
       token.classList.toggle('team-blue', unit.team === 'blue');
       token.classList.toggle('team-red', unit.team === 'red');
       token.classList.toggle('shape-small', bounds.w === 1 && bounds.h === 1);
@@ -954,7 +1029,7 @@
         var label = first.short;
         if (first.key === 'bleed') label = '血' + unit.status.bleed.length;
         if (first.key === 'devour' || first.key === 'devour-pause') label = '食';
-        var badgeClass = first.key === 'bleed' ? 'bleed' : first.key === 'guard' ? 'guard' : first.key === 'devour' || first.key === 'devour-pause' ? 'devour' : '';
+        var badgeClass = first.key === 'bleed' ? 'bleed' : first.key === 'guard' ? 'guard' : first.key === 'devour' || first.key === 'devour-pause' ? 'devour' : first.key === 'assault' ? 'assault' : first.key === 'hook' ? 'hook' : first.key === 'hook-received' ? 'hook-received' : first.key === 'hook-cooldown' ? 'hook-cooldown' : '';
         badge = '<span class="token-status ' + badgeClass + '">' + label + '</span>';
       }
       var icon = dinoSvg(unit.type);
@@ -994,6 +1069,10 @@
   function renderDetail() {
     var g = state.game;
     var unit = g.getUnit(state.selectedId);
+    if (unit && unit.hidden) {
+      els.detailPanel.innerHTML = '<div class="detail-empty"><span class="empty-glyph">◇</span><strong>对手布阵中</strong><p>布阵阶段不会显示对手的占位与朝向，开战后公开。</p></div>';
+      return;
+    }
     if (!unit) {
       els.detailPanel.innerHTML = '<div class="detail-empty"><span class="empty-glyph">◇</span><strong>未选择单位</strong><p>点击棋盘上的恐龙或左侧队伍栏，查看生命、护甲、技能与状态。</p></div>';
       return;
@@ -1092,15 +1171,22 @@
     var corpseResume = canResumeDevour(selected);
     var done = selected.turn.done;
     var controlsLocked = state.busy || (state.mode === 'online' && !state.online.connected);
+    var hookStacks = g.getHookStacks(selected);
+    var sourceHook = selected.status.hook;
+    var escapeCheck = hookStacks.length ? g.canEscapeHook(selected.id) : { allowed: false };
+    var releaseCheck = sourceHook ? g.canReleaseHook(selected.id) : { allowed: false };
     var skillLabel = state.skillMode === 'anky' ? '选择尾槌目标…' : '发动「' + skill.name + '」';
-    var skillSmall = skill.ready ? (selected.type === 'anky' ? '点击后选择相邻敌人' : '本回合可用') : skill.reason;
+    var skillSmall = skill.ready ? (selected.type === 'anky' ? '点击后选择相邻敌人' : selected.type === 'velo' ? '对朝向一格内的敌人使用' : '本回合可用') : skill.reason;
     var facingButtons = FACING_ORDER.map(function (dir) {
       return '<button type="button" data-facing="' + dir + '" class="' + (selected.facing === dir ? 'active' : '') + '"' + (done || controlsLocked ? ' disabled' : '') + ' title="朝向' + DIRECTIONS[dir].label + '">' + DIRECTIONS[dir].symbol + '</button>';
     }).join('');
 
     var note = '';
-    if (done) note = '该单位本回合已结束行动。选择其他单位，或结束回合。';
-    else if (selected.type === 'trex' && selected.turn.extraMove > 0) note = '突袭生效：行动力已增加，移动后仍可攻击。';
+    if (sourceHook) note = '钩挂中：无法移动，攻击 +2；技能不充能。持续 1 回合后可手动解除，3 回合后自动解除。';
+    else if (hookStacks.length) note = '受钩挂 ' + hookStacks.length + ' 层：行动力降低，不能攻击施加者；可尝试摆脱。';
+    else if (done) note = '该单位本回合已结束行动。选择其他单位，或结束回合。';
+    else if (selected.type === 'trex' && selected.turn.extraMove > 0) note = '突袭生效：行动力已增加，下一次攻击 +1，移动后仍可攻击。';
+    else if (selected.type === 'trex' && selected.status.assaultBonus) note = '突袭蓄力：下一次攻击伤害 +1。';
     else if (moveLeft > 0 && targets.length) note = '可移动 <b>' + moveLeft + '</b> 格；相邻敌人可直接攻击。';
     else if (moveLeft > 0) note = '可移动 <b>' + moveLeft + '</b> 格，移动后仍可攻击或发动技能。';
     else if (targets.length) note = '行动力已耗尽，仍可攻击或发动技能。';
@@ -1115,6 +1201,8 @@
           '<span class="action-key">CD ' + SPECIES[selected.type].skillCd + '</span>' +
         '</button>' +
         (state.skillMode === 'anky' ? '<button type="button" class="action-btn" data-action="cancel-skill"><span class="action-icon">×</span><span class="action-copy"><b>取消选择</b><small>退出尾槌目标模式</small></span></button>' : '') +
+        (escapeCheck.allowed ? '<button type="button" class="action-btn" data-action="escape-hook" ' + (controlsLocked ? 'disabled' : '') + '><span class="action-icon">解</span><span class="action-copy"><b>摆脱受钩挂</b><small>成功率 ' + Math.round(g.getHookEscapeChance(selected) * 100) + '%，成功失去一层</small></span></button>' : '') +
+        (releaseCheck.allowed ? '<button type="button" class="action-btn" data-action="release-hook" ' + (controlsLocked ? 'disabled' : '') + '><span class="action-icon">收</span><span class="action-copy"><b>解除钩挂</b><small>结束自身钩挂，消耗本回合行动</small></span></button>' : '') +
         (corpseResume ? '<button type="button" class="action-btn devour" data-action="resume-devour"><span class="action-icon">食</span><span class="action-copy"><b>继续吞食</b><small>消耗本回合，恢复 1 点生命</small></span></button>' : '') +
         (targets.length ? '<div class="action-btn attack" style="cursor:default"><span class="action-icon">⚔</span><span class="action-copy"><b>攻击 · ' + targets.length + ' 个目标</b><small>点击棋盘上红色高亮的敌人</small></span><span class="action-key">相邻</span></div>' : '') +
       '</div>' +
@@ -1262,6 +1350,8 @@
       case 'endUnit': return function () { return g.endUnit(action.unitId); };
       case 'endTurn': return function () { return g.endTeamTurn(); };
       case 'resumeDevour': return function () { return g.resumeDevour(action.unitId); };
+      case 'releaseHook': return function () { return g.releaseHook(action.unitId); };
+      case 'escapeHook': return function () { return g.escapeHook(action.unitId); };
       default: return null;
     }
   }
@@ -1297,7 +1387,12 @@
     }, 9000);
   }
 
+  function isStaticOnlyHost() {
+    return /(^|\.)github\.io$/i.test(location.hostname);
+  }
+
   function onlineAvailable() {
+    if (isStaticOnlyHost()) return false;
     return location.protocol === 'http:' || location.protocol === 'https:';
   }
 
@@ -1317,14 +1412,25 @@
     }
     var roomParam = null;
     try { roomParam = new URLSearchParams(location.search).get('room'); } catch (err) {}
-    if (roomParam) state.online.presetRoom = String(roomParam).toUpperCase().slice(0, 5);
+    if (roomParam) {
+      state.online.presetRoom = String(roomParam).toUpperCase().slice(0, 5);
+      // 邀请链接指向另一个房间时，丢弃当前标签页里不相关的旧会话。
+      if (state.online.code && state.online.code !== state.online.presetRoom) {
+        state.online.code = null;
+        state.online.token = null;
+        state.online.team = null;
+        clearOnlineSession();
+      }
+    }
     if (!state.online.lineupCounts) state.online.lineupCounts = defaultCountsForTeam('blue');
   }
 
   function readOnlineSession() {
     if (state.online.testMode) return null;
     try {
-      var raw = localStorage.getItem('dino-online-session');
+      // 清理旧版共享会话，避免升级后仍被旧房间劫持。
+      localStorage.removeItem('dino-online-session');
+      var raw = sessionStorage.getItem('dino-online-session');
       if (!raw) return null;
       var s = JSON.parse(raw);
       if (s && s.code && s.token) return s;
@@ -1335,12 +1441,14 @@
   function writeOnlineSession() {
     if (state.online.testMode) return;
     try {
-      localStorage.setItem('dino-online-session', JSON.stringify({ code: state.online.code, token: state.online.token }));
+      // sessionStorage 按标签页隔离：同浏览器双标签不会互相顶号。
+      sessionStorage.setItem('dino-online-session', JSON.stringify({ code: state.online.code, token: state.online.token }));
     } catch (err) {}
   }
 
   function clearOnlineSession() {
     if (state.online.testMode) return;
+    try { sessionStorage.removeItem('dino-online-session'); } catch (err) {}
     try { localStorage.removeItem('dino-online-session'); } catch (err) {}
   }
 
@@ -1360,16 +1468,18 @@
 
   function updateStartCTA() {
     if (!els.btnStart) return;
+    var label = state.mode === 'online' ? '进入联机大厅 <span>↗</span>' : '进入战场 <span>→</span>';
+    els.btnStart.innerHTML = label;
+    if (els.btnStartBottom) els.btnStartBottom.innerHTML = label;
     if (state.mode === 'online') {
-      els.btnStart.innerHTML = '进入联机大厅 <span>↗</span>';
       if (!onlineAvailable()) {
         els.btnStart.disabled = true;
+        if (els.btnStartBottom) els.btnStartBottom.disabled = true;
         if (els.startWarning) els.startWarning.textContent = '联机模式需要通过 node server.js 打开';
       } else if (!state.online.token && !state.online.code) {
         els.btnStart.disabled = false;
+        if (els.btnStartBottom) els.btnStartBottom.disabled = false;
       }
-    } else {
-      els.btnStart.innerHTML = '进入战场 <span>→</span>';
     }
   }
 
@@ -1435,6 +1545,7 @@
     state.online.code = null;
     state.online.token = null;
     state.online.team = null;
+    state.online.rematch = null;
     state.online.pendingQueue = [];
     state.online.reconnectAttempts = 0;
     state.online.queue = Promise.resolve();
@@ -1766,6 +1877,11 @@
       if (state.game) renderAll(); else renderOnlineLobby();
       return;
     }
+    if (msg.type === 'rematch') {
+      state.online.rematch = msg.rematch || null;
+      renderRematchStatus();
+      return;
+    }
     if (msg.type === 'error') {
       handleOnlineError(msg.message || '联网操作失败');
       return;
@@ -1791,6 +1907,7 @@
     var me = onlinePlayer(state.online.team);
     if (me) state.online.lineupCounts = countsFromLineup(me.lineup);
     state.mode = 'online';
+    state.online.rematch = null;
     state.game = null;
     state.busy = false;
     state.started = false;
@@ -1813,6 +1930,7 @@
     state.online.status = msg.state.phase === 'gameover' ? 'finished' : 'playing';
     state.online.pending = false;
     state.online.lastVersion = msg.version || 0;
+    state.online.rematch = null;
     clearTimeout(state.online.actionTimer);
     state.mode = 'online';
     state.epoch += 1;
@@ -1838,6 +1956,7 @@
     autoSelectForTurn();
     renderAll();
     window.scrollTo({ top: 0, behavior: 'instant' });
+    if (state.game.phase !== 'gameover') afterBoardShown();
     if (state.game.phase === 'deploy' && !resume) toast('布阵阶段 · 布置你的恐龙');
     else if (resume) toast('已恢复联网对局');
     if (state.game.phase === 'gameover') setTimeout(showResult, 500);
@@ -1926,6 +2045,7 @@
     state.online.token = null;
     state.online.team = null;
     state.online.room = null;
+    state.online.rematch = null;
     state.online.status = 'idle';
     state.online.pending = false;
     state.game = null;
@@ -2017,14 +2137,19 @@
     var cap = capacityOf(state.online.lineupCounts || defaultCountsForTeam(state.online.team || 'blue'));
     els.onlineCap.textContent = cap + '/6';
     renderOnlineLineup();
-    els.btnReady.disabled = !online || !me || !other || !other.connected || cap <= 0;
-    els.btnReady.textContent = me && me.ready ? '取消准备' : '准备';
-    if (me && me.ready) els.btnReady.classList.add('btn-ready-on'); else els.btnReady.classList.remove('btn-ready-on');
-    els.btnReady.disabled = els.btnReady.disabled || !!(me && me.ready && !other);
+    var meReady = !!(me && me.ready);
+    if (meReady) {
+      // 已准备时始终允许取消，哪怕对手掉线。
+      els.btnReady.disabled = !online;
+    } else {
+      els.btnReady.disabled = !online || !me || !other || !other.connected || cap <= 0;
+    }
+    els.btnReady.textContent = meReady ? '取消准备' : '准备';
+    if (meReady) els.btnReady.classList.add('btn-ready-on'); else els.btnReady.classList.remove('btn-ready-on');
     var hint = '';
     if (state.online.status === 'reconnecting') hint = '连接已断开，正在重连……';
     else if (!other) hint = '等待朋友加入房间。把房间码或邀请链接发给对方。';
-    else if (!other.connected) hint = '对手已掉线，等待重新连接……';
+    else if (!other.connected) hint = '对手已掉线，等待重新连接……' + (meReady ? ' 可点击「取消准备」。' : '');
     else if (me && me.ready && other.ready) hint = '双方已准备，正在进入战场……';
     else if (me && me.ready) hint = '已准备。等待对手点击准备。';
     else hint = '双方都准备好后，房间会自动开始对战。';
@@ -2106,6 +2231,15 @@
       } else if (ev.type === 'move') {
         flashPath(ev.path || []);
         Sound.move();
+      } else if (ev.type === 'hook_created') {
+        toast('钩挂已建立');
+        Sound.click();
+      } else if (ev.type === 'hook_ended') {
+        toast(ev.reason === 'expired' ? '钩挂自动解除' : ev.reason === 'escaped' ? '目标摆脱了钩挂' : '钩挂已解除');
+        Sound.click();
+      } else if (ev.type === 'escape_resolved') {
+        toast(ev.success ? '摆脱成功' : '摆脱失败');
+        Sound.click();
       } else if (ev.type === 'death') {
         Sound.death();
         if (els.battleApp) {
@@ -2114,10 +2248,14 @@
           els.battleApp.classList.add('screen-shake');
         }
       } else if (ev.type === 'gameover') {
-        var myTeam = state.mode === 'online' ? state.online.team : (state.mode === 'pvp' ? null : 'blue');
-        if (ev.winner === 'draw') { /* 平局不播放胜负音 */ }
-        else if (!myTeam || ev.winner === myTeam) Sound.victory();
-        else Sound.defeat();
+        if (state.mode === 'pvp') {
+          // PvP 同屏没有单一“我方”，不播放胜利/失败音。
+        } else {
+          var myTeam = state.mode === 'online' ? state.online.team : 'blue';
+          if (ev.winner === 'draw') { /* 平局不播放胜负音 */ }
+          else if (ev.winner === myTeam) Sound.victory();
+          else Sound.defeat();
+        }
       }
     }
     if (hits || crits) {
@@ -2141,8 +2279,8 @@
     var node = document.createElement('span');
     node.className = 'float-effect ' + (cls || '');
     node.textContent = text;
-    node.style.left = ((x + 0.5) / 16 * 100) + '%';
-    node.style.top = ((y + 0.3) / 16 * 100) + '%';
+    node.style.left = ((x + 0.5) / BOARD_SIZE * 100) + '%';
+    node.style.top = ((y + 0.3) / BOARD_SIZE * 100) + '%';
     els.effectLayer.appendChild(node);
     setTimeout(function () { if (node.parentNode) node.parentNode.removeChild(node); }, 1000);
   }
@@ -2151,8 +2289,8 @@
     if (typeof x !== 'number' || typeof y !== 'number') return;
     var node = document.createElement('span');
     node.className = 'hit-ring ' + (kind === 'heal' ? 'heal' : '');
-    node.style.left = ((x + 0.5) / 16 * 100) + '%';
-    node.style.top = ((y + 0.5) / 16 * 100) + '%';
+    node.style.left = ((x + 0.5) / BOARD_SIZE * 100) + '%';
+    node.style.top = ((y + 0.5) / BOARD_SIZE * 100) + '%';
     els.effectLayer.appendChild(node);
     setTimeout(function () { if (node.parentNode) node.parentNode.removeChild(node); }, 520);
   }
@@ -2307,10 +2445,16 @@
         return;
       }
       if (!deploySelected || !canDeployUnit(deploySelected) || state.busy) return;
+      var hadPreview = !!state.deployPreview;
+      if (hadPreview) {
+        state.deployPreview = null;
+        state.deployHover = null;
+        renderAll();
+      }
       if (state.game.unitAt(x, y)) {
         toast('该格已被占用');
       } else {
-        toast('只能放在本方半场');
+        toast(hadPreview ? '已取消预览：该位置不可放置' : '该位置不可放置');
       }
       return;
     }
@@ -2393,7 +2537,7 @@
         return;
       }
       if (action === 'rematch') {
-        if (state.mode === 'online' && state.online.code) { sendOnline({ type: 'back-to-lobby' }); return; }
+        if (state.mode === 'online' && state.online.code) { sendOnline({ type: 'rematch-request' }); return; }
         els.gameOver.classList.add('hidden');
         startGame();
         return;
@@ -2422,6 +2566,10 @@
       } else if (action === 'cancel-skill') {
         state.skillMode = null;
         renderAll();
+      } else if (action === 'release-hook') {
+        submitAction({ type: 'releaseHook', unitId: unit.id });
+      } else if (action === 'escape-hook') {
+        submitAction({ type: 'escapeHook', unitId: unit.id });
       } else if (action === 'resume-devour') {
         submitAction({ type: 'resumeDevour', unitId: unit.id });
       } else if (action === 'end-unit') {
@@ -2527,6 +2675,12 @@
     if (!unit || !unit.alive) return;
     var g = state.game;
 
+    // 受钩挂时优先尝试摆脱。
+    if (g.getHookStacks(unit).length && g.canEscapeHook(unit.id).allowed) {
+      await perform(function () { return g.escapeHook(unit.id); });
+      return;
+    }
+
     // 被中断的吞食：如果尸体就在旁边且生命足够，优先恢复吞食。
     if (unit.status.devour && !unit.status.devour.active) {
       var corpse = findCorpse(unit.status.devour.corpseId);
@@ -2543,6 +2697,11 @@
     }
 
     // 先使用不需要选择目标的技能，或可以在当前位置发挥的技能。
+    if (unit.type === 'velo' && g.getSkillStatus(unit).ready) {
+      await perform(function () { return g.useSkill(unit.id); });
+      if (!unit.alive || state.game.phase !== 'battle' || unit.turn.done) return;
+    }
+
     if (unit.type === 'trex' && g.getSkillStatus(unit).ready) {
       var tRexResult = await perform(function () { return g.useSkill(unit.id); });
       if (!unit.alive || state.game.phase !== 'battle') return;
@@ -2662,7 +2821,8 @@
 
   function chooseAITarget(unit) {
     var g = state.game;
-    var enemies = g.getEnemies(unit.team).filter(function (e) { return !g.isLockedFromAttacking(unit, e); });
+    var sources = g.getHookSourceIds(unit);
+    var enemies = g.getEnemies(unit.team).filter(function (e) { return sources.indexOf(e.id) < 0 && !g.isLockedFromAttacking(unit, e); });
     if (!enemies.length) return null;
     var atk = g.getAttack(unit);
     enemies.sort(function (a, b) {
@@ -2734,6 +2894,45 @@
   }
 
   /* ---------------- 结算 / 弹窗 ---------------- */
+  function renderRematchStatus() {
+    if (!els.rematchStatus) return;
+    var r = state.online.rematch;
+    var onlineResult = state.mode === 'online' && state.game && state.game.phase === 'gameover';
+    var active = !!(onlineResult && r && (r.blue || r.red));
+    if (!active) {
+      els.rematchStatus.classList.add('hidden');
+      if (onlineResult && els.btnRematch) {
+        els.btnRematch.textContent = '再来一局';
+        els.btnRematch.disabled = false;
+      }
+      return;
+    }
+    var me = state.online.team;
+    var opp = me === 'blue' ? 'red' : 'blue';
+    var meVote = !!r[me];
+    var oppVote = !!r[opp];
+    var name = (onlinePlayer(opp) || {}).name || '对手';
+    var text;
+    if (meVote && oppVote) text = '双方已同意再战，正在返回房间…';
+    else if (meVote) text = '已发送再战请求，等待 ' + name + '…';
+    else text = name + ' 想再来一局，点击按钮接受。';
+    if (r.deadline) {
+      var left = Math.max(0, Math.ceil((r.deadline - Date.now()) / 1000));
+      text += ' ' + left + ' 秒内有效。';
+    }
+    els.rematchStatus.textContent = text;
+    els.rematchStatus.classList.remove('hidden');
+    if (els.btnRematch) {
+      if (meVote) {
+        els.btnRematch.textContent = '等待对手…';
+        els.btnRematch.disabled = true;
+      } else {
+        els.btnRematch.textContent = '接受再战';
+        els.btnRematch.disabled = false;
+      }
+    }
+  }
+
   function showResult() {
     if (!state.game || state.game.phase !== 'gameover') return;
     if (!els.gameOver.classList.contains('hidden')) return;
@@ -2760,13 +2959,13 @@
       else { title = '苍林胜利'; sub = '赤焰部族全军覆没，苍林盟约赢得了这场远古战争。'; }
     } else if (g.winner === 'red') {
       if (state.mode === 'ai') { title = '败北'; sub = '苍林盟约的最后一只恐龙倒下了。赤焰部族占领了盆地。'; defeat = true; }
-      else { title = '赤焰胜利'; sub = '苍林盟约全军覆没，赤焰部族赢得了这场远古战争。'; defeat = true; }
+      else { title = '赤焰胜利'; sub = '苍林盟约全军覆没，赤焰部族赢得了这场远古战争。'; defeat = state.mode !== 'pvp'; }
     }
     els.resultTitle.textContent = title;
     els.resultSub.textContent = sub;
     els.resultSigil.className = 'result-sigil' + (defeat ? ' defeat' : '');
     els.resultSigil.textContent = defeat ? '✕' : (g.winner === 'draw' ? '◐' : '✦');
-    els.btnRematch.textContent = state.mode === 'online' ? '返回房间' : '再战一局';
+    els.btnRematch.textContent = state.mode === 'online' ? '再来一局' : '再战一局';
     els.btnAdjust.textContent = state.mode === 'online' ? '退出联机' : '调整阵容';
     var blueDead = g.getTeamUnits('blue').filter(function (u) { return !u.alive; }).length;
     var redDead = g.getTeamUnits('red').filter(function (u) { return !u.alive; }).length;
@@ -2775,6 +2974,7 @@
       '<div class="result-stat"><b>' + redDead + '</b><span>赤焰损失</span></div>' +
       '<div class="result-stat"><b>' + blueDead + '</b><span>苍林损失</span></div>';
     els.gameOver.classList.remove('hidden');
+    renderRematchStatus();
   }
 
   function openRules() {
@@ -2796,7 +2996,7 @@
     var html = '';
     if (state.rulesTab === 'basics') {
       html = '<h3>在方格盆地中活到最后</h3>' +
-        '<p>双方各有一支容量为 <b>6</b> 的恐龙军团，在 16 × 16 的方格战场上轮流行动。开局先在各自半场布阵，再进入战斗；消灭对方全部恐龙即可获胜。</p>' +
+        '<p>双方各有一支容量为 <b>6</b> 的恐龙军团，在 10 × 10 的方格战场上轮流行动。开局先在各自半场布阵，再进入战斗；消灭对方全部恐龙即可获胜。</p>' +
         '<div class="rule-grid">' +
           '<div class="rule-box"><strong>开局布阵</strong><span>开局时双方可在本方半场任意空格放置恐龙并调整朝向，不消耗行动力。双方完成布阵后，蓝方先手进入第 1 回合。</span></div>' +
           '<div class="rule-box"><strong>队伍容量与占格</strong><span>小型恐龙占 1 格、消耗 1 容量；中型占 2 格 / 2 容量；霸王龙占 4 格 / 4 容量。可重复编入同种恐龙，但每队总容量不能超过 6。</span></div>' +
@@ -2817,7 +3017,7 @@
         '<div class="rule-box"><strong>反击形态</strong><span>剑龙开启后持续 2 回合：攻击力 +1，命中时 25% 流血、12.5% 穿刺。穿刺造成双倍伤害后形态结束，护甲上限 -1、攻击力 -1，本局无法再次穿刺。</span></div>' +
         '<div class="rule-box"><strong>吞食</strong><span>霸王龙击杀敌人后进入吞食，按猎物容量需要 1 / 2 / 3 回合，每回合恢复 1 点生命。期间不能攻击、移动或使用主动技能。受到 ≥3 点伤害会打断吞食，进度保留。生命低于 4 时改为普通击杀恢复。</span></div>' +
         '<div class="rule-box"><strong>尾槌重击</strong><span>2/3 命中，造成 3 点伤害。若未破除护甲，再造成 2 点护甲伤害；若破甲，再造成 1 点生命伤害。另有 50% 概率使目标在 1 回合内无法攻击甲龙。</span></div>' +
-        '<div class="rule-box"><strong>甲壳反伤</strong><span>甲龙护甲受到攻击时，攻击者受到 1 点伤害；护甲存在时，甲龙受到的伤害降低 25%。</span></div>' +
+        '<div class="rule-box"><strong>甲壳反伤</strong><span>甲龙护甲受到攻击时，攻击者受到 1 点伤害；护甲存在时，甲龙受到的伤害降低 15%。</span></div>' +
       '</div>' +
       '<h4>结算顺序</h4><p>回合结束时：护甲恢复 → 流血倒计时与发作 → 连续未受伤恢复/流血消退。流血伤害不会重置“连续未受伤”计数。</p>';
     } else if (state.rulesTab === 'codex') {
@@ -2844,10 +3044,12 @@
           '<div class="rule-box"><strong>回合与冷却</strong><span>“回合”指双方各行动一次的大回合。技能冷却从游戏开始时计算，冷却 N 回合表示需要经过 N 个完整回合才能再次发动。</span></div>' +
           '<div class="rule-box"><strong>朝向</strong><span>转向不消耗行动力，可在攻击/技能前自由调整；每只单位每回合在行动结束后不能再转向。正面为所朝方向 ±45° 的扇形。</span></div>' +
           '<div class="rule-box"><strong>剑龙行动力</strong><span>剑龙的行动力为 2；开启尾刃鞭刺后仍可移动和攻击，但反击形态只持续 2 回合。</span></div>' +
-          '<div class="rule-box"><strong>甲龙减伤</strong><span>“减少四分之一”按四舍五入取整；护甲为 0 时不再生效。</span></div>' +
-          '<div class="rule-box"><strong>方阵判定</strong><span>两只及以上同队、同朝向三角龙在同一行/列上相邻，形成方阵；同一只只计一次，敌方不参与。来自正面扇形的攻击减少“数量 + 1”点伤害，最多 5 点。</span></div>' +
+          '<div class="rule-box"><strong>甲龙减伤</strong><span>“减少 15%”按四舍五入取整；护甲为 0 时不再生效。</span></div>' +
+          '<div class="rule-box"><strong>方阵判定</strong><span>两只及以上同队、同朝向三角龙在同一行/列上相邻，形成方阵；同一只只计一次，敌方不参与。来自正面扇形的攻击减少“数量”点伤害，最多 5 点。</span></div>' +
           '<div class="rule-box"><strong>流血击杀</strong><span>流血造成的击杀会把恢复奖励归于施加流血的单位。霸王龙通过流血远程击杀时使用普通恢复，不进入吞食。</span></div>' +
           '<div class="rule-box"><strong>吞食打断</strong><span>受到 3 点及以上实际伤害会打断吞食，保留进度。之后可消耗一回合在尸体旁继续吞食。</span></div>' +
+          '<div class="rule-box"><strong>布阵保密</strong><span>联网布阵阶段，双方看不到对手的占位与朝向，也收不到对手的布阵移动事件；开战后自动公开。</span></div>' +
+          '<div class="rule-box"><strong>环境侵蚀</strong><span>从第 15 回合起，所有存活单位在每回合结束时失去 1 点生命；该伤害无视护甲，也不会触发护甲、防御或反伤。</span></div>' +
           '<div class="rule-box"><strong>同归于尽</strong><span>若双方最后单位同时被消灭，判定为平局。</span></div>' +
           '<div class="rule-box"><strong>随机概率</strong><span>技能概率每次独立判定；攻击必定命中（尾槌与穿刺等特殊概率除外）。</span></div>' +
         '</div>';
