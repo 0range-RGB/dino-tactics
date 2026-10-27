@@ -1409,7 +1409,7 @@
       this.pushLog(events, unit.name + ' 的镰锯扑钩被 ' + target.name + ' 的巨大身躯弹开！', 'hook');
       this._damage(unit, 3, { source: target, kind: 'hook', isAttack: false, allowDevour: false }, events);
       if (target.alive) {
-        this._damage(target, 1, { source: unit, kind: 'hook', isAttack: false, allowDevour: false }, events);
+        this._damage(target, 1, { source: unit, kind: 'hook', isAttack: false, allowDevour: false, ignoreArmor: true }, events);
       }
       var dir = DIRECTIONS[unit.facing];
       var bx = unit.x - (dir ? dir.x : 0);
@@ -1449,7 +1449,16 @@
     }
     unit.status.hook = null;
     unit.skillReadyRound = this.round + SPECIES[unit.type].skillCd + 1;
-    this.pushLog(events || [], unit.name + ' 的钩挂状态结束（' + (reason === 'expired' ? '自动松脱' : reason === 'escaped' ? '目标摆脱' : '手动解除') + '）。', 'hook');
+    var reasonLabels = {
+      expired: '自动松脱',
+      escaped: '目标摆脱',
+      manual: '手动解除',
+      dispelled: '被驱散',
+      source_removed: '来源离场',
+      target_removed: '目标离场',
+      blocked: '退路被阻挡'
+    };
+    this.pushLog(events || [], unit.name + ' 的钩挂状态结束（' + (reasonLabels[reason] || '解除') + '）。', 'hook');
     (events || []).push({ type: 'hook_ended', sourceId: unit.id, reason: reason });
     return true;
   };
@@ -1550,12 +1559,43 @@
     this.units.forEach(function (source) {
       if (!source.alive || !source.status.hook || source.team === target.team) return;
       if (source.status.hook.targetId !== target.id) return;
-      if (!self.canPlaceUnit(source, source.x + dx, source.y + dy, source.facing, true)) return;
       var from = { x: source.x, y: source.y };
-      source.x += dx;
-      source.y += dy;
-      self.pushLog(events, source.name + ' 被钩挂牵引，跟随 ' + target.name + ' 移动。', 'hook');
-      events.push({ type: 'move', unitId: source.id, from: from, to: { x: source.x, y: source.y }, path: [{ x: source.x, y: source.y }], follow: true });
+      var moved = false;
+      var exactX = source.x + dx;
+      var exactY = source.y + dy;
+      if (self.canPlaceUnit(source, exactX, exactY, source.facing, true)) {
+        source.x = exactX;
+        source.y = exactY;
+        moved = true;
+      } else {
+        // 终点被占时，拖到目标周围最近的可放置相邻格；没有则断钩。
+        var cells = self.getFootprint(target);
+        var seen = {};
+        var candidates = [];
+        cells.forEach(function (cell) {
+          [{ x: 0, y: -1 }, { x: 1, y: 0 }, { x: 0, y: 1 }, { x: -1, y: 0 }].forEach(function (dir) {
+            var nx = cell.x + dir.x;
+            var ny = cell.y + dir.y;
+            var k = nx + ',' + ny;
+            if (seen[k] || !self.canPlaceUnit(source, nx, ny, source.facing, true)) return;
+            seen[k] = true;
+            candidates.push({ x: nx, y: ny, d: Math.max(Math.abs(nx - source.x), Math.abs(ny - source.y)) });
+          });
+        });
+        candidates.sort(function (a, b) { return a.d - b.d; });
+        if (candidates.length) {
+          source.x = candidates[0].x;
+          source.y = candidates[0].y;
+          moved = true;
+        }
+      }
+      if (moved) {
+        self.pushLog(events, source.name + ' 被钩挂牵引，跟随 ' + target.name + ' 移动。', 'hook');
+        events.push({ type: 'move', unitId: source.id, from: from, to: { x: source.x, y: source.y }, path: [{ x: source.x, y: source.y }], follow: true });
+      } else if (distance(source, target) > 1) {
+        self.pushLog(events, source.name + ' 的跟随落点被阻挡，钩挂断裂。', 'hook');
+        self.endHook(source, 'blocked', events);
+      }
     });
   };
 
