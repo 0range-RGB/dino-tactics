@@ -798,6 +798,9 @@ test('跟随落点被占时来源被拖到最近相邻格', () => {
   assert.ok(move.ok, move.error);
   assert.ok(v.status.hook);
   assert.strictEqual(Math.max(Math.abs(v.x - t.x), Math.abs(v.y - t.y)) <= 1, true);
+  const followEvent = move.events.find(e => e.type === 'move' && e.unitId === v.id && e.follow);
+  assert.ok(followEvent);
+  assert.ok(followEvent.path.length >= 2);
 });
 
 test('击杀钩挂目标或来源时日志使用离场原因', () => {
