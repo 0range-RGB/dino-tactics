@@ -240,9 +240,15 @@
       if (localStorage.getItem('dino-board-zoom-hint') === '1') return;
       localStorage.setItem('dino-board-zoom-hint', '1');
     } catch (err) { return; }
-    setTimeout(function () {
+    function showHintWhenFree() {
+      // 不与“布阵阶段”等即时提示抢同一个 toast，等它消失后再显示。
+      if (els.toast && els.toast.classList.contains('show')) {
+        setTimeout(showHintWhenFree, 500);
+        return;
+      }
       toast('小屏可点棋盘上方「放大」，设置会记住');
-    }, 900);
+    }
+    setTimeout(showHintWhenFree, 900);
   }
 
   function afterBoardShown() {
@@ -1201,7 +1207,7 @@
           '<span class="action-key">CD ' + SPECIES[selected.type].skillCd + '</span>' +
         '</button>' +
         (state.skillMode === 'anky' ? '<button type="button" class="action-btn" data-action="cancel-skill"><span class="action-icon">×</span><span class="action-copy"><b>取消选择</b><small>退出尾槌目标模式</small></span></button>' : '') +
-        (escapeCheck.allowed ? '<button type="button" class="action-btn" data-action="escape-hook" ' + (controlsLocked ? 'disabled' : '') + '><span class="action-icon">解</span><span class="action-copy"><b>摆脱受钩挂</b><small>成功率 ' + Math.round(g.getHookEscapeChance(selected) * 100) + '%，成功失去一层</small></span></button>' : '') +
+        (escapeCheck.allowed ? '<button type="button" class="action-btn" data-action="escape-hook" ' + (controlsLocked ? 'disabled' : '') + '><span class="action-icon">解</span><span class="action-copy"><b>' + (hookStacks.length > 1 ? '摆脱受钩挂（最早层）' : '摆脱受钩挂') + '</b><small>成功率 ' + Math.round(g.getHookEscapeChance(selected) * 100) + '%，成功失去一层</small></span></button>' : '') +
         (releaseCheck.allowed ? '<button type="button" class="action-btn" data-action="release-hook" ' + (controlsLocked ? 'disabled' : '') + '><span class="action-icon">收</span><span class="action-copy"><b>解除钩挂</b><small>结束自身钩挂，消耗本回合行动</small></span></button>' : '') +
         (corpseResume ? '<button type="button" class="action-btn devour" data-action="resume-devour"><span class="action-icon">食</span><span class="action-copy"><b>继续吞食</b><small>消耗本回合，恢复 1 点生命</small></span></button>' : '') +
         (targets.length ? '<div class="action-btn attack" style="cursor:default"><span class="action-icon">⚔</span><span class="action-copy"><b>攻击 · ' + targets.length + ' 个目标</b><small>点击棋盘上红色高亮的敌人</small></span><span class="action-key">相邻</span></div>' : '') +
@@ -3025,7 +3031,7 @@
         '<div class="rule-box"><strong>吞食</strong><span>霸王龙击杀敌人后进入吞食，按猎物容量需要 1 / 2 / 3 回合，每回合恢复 1 点生命。期间不能攻击、移动或使用主动技能。受到 ≥3 点伤害会打断吞食，进度保留。生命低于 4 时改为普通击杀恢复。</span></div>' +
         '<div class="rule-box"><strong>尾槌重击</strong><span>2/3 命中，造成 3 点伤害。若未破除护甲，再造成 2 点护甲伤害；若破甲，再造成 1 点生命伤害。另有 50% 概率使目标在 1 回合内无法攻击甲龙。</span></div>' +
         '<div class="rule-box"><strong>甲壳反伤</strong><span>甲龙护甲受到攻击时，攻击者受到 1 点伤害；护甲存在时，甲龙受到的伤害降低 15%。</span></div>' +
-        '<div class="rule-box"><strong>镰锯扑钩 · 受钩挂</strong><span>伶盗龙对朝向一格内敌人施加 1 层受钩挂，并进入钩挂：攻击 +2、无法移动、技能不充能。小型最多 2 层，中型最多 3 层；受钩挂使行动力 ≥2 的目标 -1，且不能攻击施加者。目标可“摆脱”：小型成功率 25%–45%，中型 45%–75%，每回合一次，成功失去一层；失去最后一层时对施加者造成 2 点伤害并结束钩挂。目标移动时来源跟随；来源被拖到最近可放置相邻格，无格可放则断钩。大型目标立即弹开：来源受 3 点伤害并后退一格，无法后退额外受 1 点。</span></div>' +
+        '<div class="rule-box"><strong>镰锯扑钩 · 受钩挂</strong><span>伶盗龙对朝向一格内敌人施加 1 层受钩挂，并进入钩挂：攻击 +2、无法移动、技能不充能。小型最多 2 层，中型最多 3 层；受钩挂使行动力 ≥2 的目标 -1，且不能攻击施加者。目标可“摆脱”：小型成功率 25%–45%，中型 45%–75%，每回合一次，成功失去一层（多层时优先失去最早施加的一层）；失去最后一层时对施加者造成 2 点伤害并结束钩挂。目标移动时来源跟随；来源被拖到最近可放置相邻格，无格可放则断钩。大型目标立即弹开：来源受 3 点伤害并后退一格，无法后退额外受 1 点。</span></div>' +
       '</div>' +
       '<h4>结算顺序</h4><p>回合结束时：护甲恢复 → 流血倒计时与发作 → 连续未受伤恢复/流血消退。流血伤害不会重置“连续未受伤”计数。</p>';
     } else if (state.rulesTab === 'codex') {
