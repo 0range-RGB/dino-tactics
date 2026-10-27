@@ -1388,7 +1388,8 @@
   }
 
   function isStaticOnlyHost() {
-    return /(^|\.)github\.io$/i.test(location.hostname);
+    if (typeof window.DINO_ONLINE_AVAILABLE === 'boolean') return !window.DINO_ONLINE_AVAILABLE;
+    return /(^|\.)(github\.io|gitlab\.io|pages\.dev|netlify\.app|vercel\.app)$/i.test(location.hostname);
   }
 
   function onlineAvailable() {
@@ -1485,7 +1486,10 @@
 
   function handleStartPressed() {
     if (state.mode === 'online') {
-      if (!onlineAvailable()) { toast('联网对战需要通过 node server.js 启动'); return; }
+      if (!onlineAvailable()) {
+        toast(isStaticOnlyHost() ? '此站点为纯静态版，联机请使用部署了服务端的地址' : '联网对战需要通过 node server.js 启动');
+        return;
+      }
       openOnlineLobby();
       return;
     }
@@ -1493,7 +1497,10 @@
   }
 
   function openOnlineLobby() {
-    if (!onlineAvailable()) { toast('联网对战需要通过 node server.js 启动'); return; }
+    if (!onlineAvailable()) {
+      toast(isStaticOnlyHost() ? '此站点为纯静态版，联机请使用部署了服务端的地址' : '联网对战需要通过 node server.js 启动');
+      return;
+    }
     state.mode = 'online';
     state.online.intentional = false;
     if (els.onlineName) els.onlineName.value = state.online.name || '驯龙师';
