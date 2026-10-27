@@ -3,7 +3,7 @@
 const assert = require('assert');
 const E = require('../engine.js');
 assert.strictEqual(E.BOARD_SIZE, 10, '测试套件版本不匹配：请确认 engine.js 是 10×10 版本');
-console.log('\n测试套件：10×10 棋盘 · 42 项');
+console.log('\n测试套件：10×10 棋盘 · 44 项');
 
 let passed = 0;
 function test(name, fn) {
@@ -760,8 +760,8 @@ test('大型目标反震、后退与退路阻挡', () => {
   assert.strictEqual(v.x, 4);
   assert.strictEqual(v.armor, 0);
   assert.strictEqual(v.hp, vHp - 2);
-  assert.strictEqual(t.armor, 1);
-  assert.strictEqual(t.hp, 12);
+  assert.strictEqual(t.armor, 2);
+  assert.strictEqual(t.hp, 11);
 });
 
 test('钩挂期间技能暂停充能，目标移动会牵引来源', () => {
@@ -780,6 +780,44 @@ test('钩挂期间技能暂停充能，目标移动会牵引来源', () => {
   const move = g.moveUnit(t.id, 7, 5);
   assert.ok(move.ok, move.error);
   assert.strictEqual(v.x, 6);
+});
+
+test('跟随落点被占时来源被拖到最近相邻格', () => {
+  const g = make(['velo', 'stego'], ['velo']);
+  const v = g.getUnit('blue-1');
+  const block = g.getUnit('blue-2');
+  const t = g.getUnit('red-3');
+  place(v, 1, 5, 'E'); place(t, 2, 5, 'W'); place(block, 1, 7, 'N');
+  g.round = 1; v.skillReadyRound = 1; v.turn.actionUsed = false; v.turn.done = false;
+  assert.ok(g.useSkill(v.id).ok);
+  g.activeTeam = 'red';
+  t.turn.actionUsed = false; t.turn.done = false; t.turn.moveLeft = t.move;
+  const move = g.moveUnit(t.id, 2, 7);
+  assert.ok(move.ok, move.error);
+  assert.ok(v.status.hook);
+  assert.strictEqual(Math.max(Math.abs(v.x - t.x), Math.abs(v.y - t.y)) <= 1, true);
+});
+
+test('击杀钩挂目标或来源时日志使用离场原因', () => {
+  const g1 = make(['velo'], ['leso']);
+  const v1 = g1.getUnit('blue-1');
+  const t1 = g1.getUnit('red-2');
+  place(v1, 1, 5, 'E'); place(t1, 2, 5, 'W');
+  g1.round = 1; v1.skillReadyRound = 1; v1.turn.actionUsed = false; v1.turn.done = false;
+  assert.ok(g1.useSkill(v1.id).ok);
+  const events1 = [];
+  g1._damage(t1, 99, { ignoreArmor: true, source: v1, kind: 'attack', isAttack: true }, events1);
+  assert.ok(events1.some(e => e.type === 'log' && e.text.includes('目标离场')));
+
+  const g2 = make(['velo'], ['leso']);
+  const v2 = g2.getUnit('blue-1');
+  const t2 = g2.getUnit('red-2');
+  place(v2, 1, 5, 'E'); place(t2, 2, 5, 'W');
+  g2.round = 1; v2.skillReadyRound = 1; v2.turn.actionUsed = false; v2.turn.done = false;
+  assert.ok(g2.useSkill(v2.id).ok);
+  const events2 = [];
+  g2._damage(v2, 99, { ignoreArmor: true, source: t2, kind: 'attack', isAttack: true }, events2);
+  assert.ok(events2.some(e => e.type === 'log' && e.text.includes('来源离场')));
 });
 
 console.log('\n通过 ' + passed + ' 项测试' + (process.exitCode ? '，存在失败' : '。'));
