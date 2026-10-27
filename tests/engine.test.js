@@ -713,12 +713,14 @@ test('受钩挂层数上限与摆脱', () => {
 
   g.activeTeam = 'red';
   target.turn.actionUsed = false; target.turn.done = false;
-  const source = g.getUnit(g.getHookStacks(target)[1].sourceId);
+  const source = g.getUnit(g.getHookStacks(target)[0].sourceId);
+  const source2 = g.getUnit(g.getHookStacks(target)[1].sourceId);
   const esc = g.escapeHook(target.id);
   assert.ok(esc.ok);
   assert.strictEqual(esc.success, true);
   assert.strictEqual(g.getHookStacks(target).length, 1);
   assert.strictEqual(source.status.hook, null);
+  assert.ok(source2.status.hook);
 });
 
 test('钩挂手动解除与自动解除', () => {
