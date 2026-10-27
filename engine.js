@@ -1313,7 +1313,7 @@
     unit.turn.moved = true;
     this.pushLog(events, unit.name + ' 移动到 (' + (x + 1) + ', ' + (y + 1) + ')。', 'move');
     events.push({ type: 'move', unitId: unit.id, from: from, to: { x: x, y: y }, path: dest.path });
-    this.followHookTarget(unit, from.x, from.y, events);
+    this.followHookTarget(unit, from.x, from.y, dest.path, events);
     return { ok: true, events: events };
   };
 
@@ -1509,7 +1509,11 @@
     if (!check.allowed) return { ok: false, error: check.reason, events: events };
     var chance = this.getHookEscapeChance(unit);
     var stacks = this.getHookStacks(unit);
-    var stack = stacks[stacks.length - 1];
+    var stackIndex = 0;
+    for (var i = 1; i < stacks.length; i++) {
+      if ((stacks[i].createdTurn || 0) < (stacks[stackIndex].createdTurn || 0)) stackIndex = i;
+    }
+    var stack = stacks[stackIndex];
     var sourceId = stack ? stack.sourceId : null;
     var source = sourceId ? this.getUnit(sourceId) : null;
     this.consumeAction(unit);
@@ -1517,7 +1521,7 @@
     var success = this.rng() < chance;
     this.pushLog(events, unit.name + ' 尝试摆脱受钩挂（成功率 ' + Math.round(chance * 100) + '%）。', 'hook');
     if (success) {
-      unit.status.hookReceived.pop();
+      unit.status.hookReceived.splice(stackIndex, 1);
       if (source && source.status.hook && source.status.hook.targetId === unit.id) {
         source.status.hook = null;
         source.skillReadyRound = this.round + SPECIES[source.type].skillCd + 1;
@@ -1551,24 +1555,35 @@
     });
   };
 
-  Game.prototype.followHookTarget = function (target, fromX, fromY, events) {
+  Game.prototype.followHookTarget = function (target, fromX, fromY, path, events) {
     var self = this;
-    var dx = target.x - fromX;
-    var dy = target.y - fromY;
-    if (!dx && !dy) return;
+    if (!Array.isArray(path) || !path.length) path = [{ x: target.x, y: target.y }];
+    if (!path.length) return;
     this.units.forEach(function (source) {
       if (!source.alive || !source.status.hook || source.team === target.team) return;
       if (source.status.hook.targetId !== target.id) return;
       var from = { x: source.x, y: source.y };
-      var moved = false;
-      var exactX = source.x + dx;
-      var exactY = source.y + dy;
-      if (self.canPlaceUnit(source, exactX, exactY, source.facing, true)) {
-        source.x = exactX;
-        source.y = exactY;
-        moved = true;
-      } else {
-        // 终点被占时，拖到目标周围最近的可放置相邻格；没有则断钩。
+      var sourcePath = [];
+      var cursorX = fromX;
+      var cursorY = fromY;
+      var blocked = false;
+      for (var i = 0; i < path.length; i++) {
+        var step = path[i];
+        var dx = step.x - cursorX;
+        var dy = step.y - cursorY;
+        cursorX = step.x;
+        cursorY = step.y;
+        if (!dx && !dy) continue;
+        if (!self.canPlaceUnit(source, source.x + dx, source.y + dy, source.facing, true)) {
+          blocked = true;
+          break;
+        }
+        source.x += dx;
+        source.y += dy;
+        sourcePath.push({ x: source.x, y: source.y });
+      }
+      if (blocked || distance(source, target) > 1) {
+        // 路径受阻时，拖到目标周围最近的可放置相邻格；没有则断钩。
         var cells = self.getFootprint(target);
         var seen = {};
         var candidates = [];
@@ -1586,15 +1601,15 @@
         if (candidates.length) {
           source.x = candidates[0].x;
           source.y = candidates[0].y;
-          moved = true;
+          sourcePath.push({ x: source.x, y: source.y });
         }
       }
-      if (moved) {
-        self.pushLog(events, source.name + ' 被钩挂牵引，跟随 ' + target.name + ' 移动。', 'hook');
-        events.push({ type: 'move', unitId: source.id, from: from, to: { x: source.x, y: source.y }, path: [{ x: source.x, y: source.y }], follow: true });
-      } else if (distance(source, target) > 1) {
+      if (distance(source, target) > 1) {
         self.pushLog(events, source.name + ' 的跟随落点被阻挡，钩挂断裂。', 'hook');
         self.endHook(source, 'blocked', events);
+      } else if (source.x !== from.x || source.y !== from.y) {
+        self.pushLog(events, source.name + ' 被钩挂牵引，跟随 ' + target.name + ' 移动。', 'hook');
+        events.push({ type: 'move', unitId: source.id, from: from, to: { x: source.x, y: source.y }, path: sourcePath, follow: true });
       }
     });
   };
