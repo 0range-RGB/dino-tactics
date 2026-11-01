@@ -89,7 +89,7 @@ async function waitHealth(ms = 10000) {
     b = client();
     await b.open();
     await b.type('welcome');
-    b.send({ type: 'join', code: session.code, name: 'Bob', lineup: ['trike', 'stego', 'anky'] });
+    b.send({ type: 'join', code: session.code, name: 'Bob', lineup: ['leso', 'stego', 'anky'] });
     await b.type('session');
     await b.type('lobby');
     await a.type('lobby');
