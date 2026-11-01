@@ -2133,13 +2133,19 @@
         html += '<div class="room-player empty ' + team + '"><div class="rp-head"><span class="rp-faction">' + (team === 'blue' ? '❖' : '✦') + '</span><span class="rp-name"><strong>等待玩家加入</strong><span>' + (team === 'blue' ? '苍林盟约' : '赤焰部族') + '</span></span></div><div class="rp-empty">把房间码发给朋友，对方即可加入。</div></div>';
         return;
       }
-      var units = p.lineup.map(function (type) {
-        return '<span class="rp-unit"><span class="dino-icon">' + dinoSvg(type) + '</span>' + SPECIES[type].name + '</span>';
-      }).join('');
+      var lineupHtml;
+      if (p.lineupHidden) {
+        lineupHtml = '<div class="rp-lineup rp-lineup-hidden">阵容保密 · 开战后公开</div>';
+      } else {
+        var units = p.lineup.map(function (type) {
+          return '<span class="rp-unit"><span class="dino-icon">' + dinoSvg(type) + '</span>' + SPECIES[type].name + '</span>';
+        }).join('');
+        lineupHtml = '<div class="rp-lineup">' + units + '</div>';
+      }
       html += '<div class="room-player ' + team + '">' +
-        '<div class="rp-head"><span class="rp-faction">' + (team === 'blue' ? '❖' : '✦') + '</span><span class="rp-name"><strong>' + escapeHtml(p.name) + '</strong><span>' + (team === 'blue' ? '苍林盟约' : '赤焰部族') + ' · 容量 ' + p.capacity + '/6</span></span>' +
+        '<div class="rp-head"><span class="rp-faction">' + (team === 'blue' ? '❖' : '✦') + '</span><span class="rp-name"><strong>' + escapeHtml(p.name) + '</strong><span>' + (team === 'blue' ? '苍林盟约' : '赤焰部族') + ' · ' + (p.lineupHidden ? '阵容保密' : '容量 ' + p.capacity + '/6') + '</span></span>' +
         '<span class="rp-ready ' + (!p.connected ? 'off' : p.ready ? 'on' : '') + '">' + (!p.connected ? '掉线' : p.ready ? '已准备' : '未准备') + '</span></div>' +
-        '<div class="rp-lineup">' + units + '</div>' +
+        lineupHtml +
         (p.team === state.online.team ? '<span class="rp-you">YOU</span>' : '') +
       '</div>';
     });
