@@ -972,7 +972,7 @@
     }
 
     if (target.type === 'trike' && opts.isAttack && opts.source && opts.source.alive && this.isInFacingArc(target, opts.source)) {
-      var guarded = Math.max(1, Math.round(amount * 0.85));
+      var guarded = roundHalf(amount * 0.85);
       if (guarded < amount) notes.push('吾盾之坚 ' + (amount - guarded));
       amount = guarded;
     }
