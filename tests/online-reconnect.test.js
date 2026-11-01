@@ -92,7 +92,14 @@ async function waitHealth(ms = 10000) {
     b.send({ type: 'join', code: session.code, name: 'Bob', lineup: ['leso', 'stego', 'anky'] });
     await b.type('session');
     await b.type('lobby');
-    await a.type('lobby');
+    const lobbyA = await a.type('lobby');
+    const blueView = lobbyA.room.players.find((p) => p.team === 'blue');
+    const redView = lobbyA.room.players.find((p) => p.team === 'red');
+    assert.strictEqual(blueView.lineupHidden, false);
+    assert.deepStrictEqual(blueView.lineup, ['trex', 'leso']);
+    assert.strictEqual(redView.lineupHidden, true);
+    assert.deepStrictEqual(redView.lineup, []);
+    assert.strictEqual(redView.capacity, null);
 
     a.send({ type: 'ready', ready: true });
     await a.type('lobby');
