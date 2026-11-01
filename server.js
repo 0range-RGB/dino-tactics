@@ -87,7 +87,7 @@ function capacityOfLineup(lineup) {
 
 function defaultLineup(team) {
   return team === 'blue'
-    ? ['stego', 'anky', 'leso']
+    ? ['trike', 'leso']
     : ['trex', 'leso'];
 }
 
