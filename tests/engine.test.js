@@ -675,6 +675,8 @@ test('大型目标反震、后退与退路阻挡', () => {
   assert.strictEqual(v.hp, vHp - 2);
   assert.strictEqual(t.armor, 2);
   assert.strictEqual(t.hp, 11);
+  assert.strictEqual(g.getHookStacks(t).length, 0);
+  assert.ok(res.events.some(e => e.type === 'hook_created' && e.failed && e.large));
 });
 
 test('钩挂期间技能暂停充能，目标移动会牵引来源', () => {
