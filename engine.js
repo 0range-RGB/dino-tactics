@@ -67,7 +67,7 @@
       latin: 'Lesothosaurus',
       size: 2,
       role: '侧翼游猎者',
-      tags: ['侧刺反击', '流血'],
+      tags: ['侧刺反击', '荆棘背刺', '流血'],
       hp: 6,
       armor: 3,
       attack: 2,
@@ -76,9 +76,9 @@
       accent: '#67b7ff',
       emblem: '刺',
       skillName: '侧刺反击',
-      skillDesc: '对自身两侧方向的敌方单位各攻击一次（每侧至多 1 只），造成 3 点伤害，并有 50% 概率造成流血。',
-      passiveName: '无被动',
-      passiveDesc: '无被动技能。',
+      skillDesc: '对自身两侧方向的敌方单位各攻击一次（每侧至多 1 只），造成 3 点伤害；若目标已带有流血，额外造成 2 点伤害。另有 50% 概率造成流血。',
+      passiveName: '荆棘背刺',
+      passiveDesc: '被攻击时，根据该次攻击的实际伤害，有 25%–85% 概率对攻击者造成流血：伤害越高概率越高。',
       skillType: 'active'
     },
     stego: {
@@ -771,7 +771,9 @@
         var target = sideTargets[i];
         if (!unit.alive || !target.alive || this.phase !== 'battle') break;
         this.pushLog(events, unit.name + ' 的侧刺扫向 ' + target.name + '！', 'skill');
-        var res = this._damage(target, 3, {
+        var skillDamage = 3 + (target.status.bleed && target.status.bleed.length ? 2 : 0);
+        if (skillDamage > 3) this.pushLog(events, target.name + ' 已带有流血，侧刺额外造成 2 点伤害。', 'skill');
+        var res = this._damage(target, skillDamage, {
           source: unit,
           kind: 'skill',
           isAttack: true,
@@ -815,7 +817,8 @@
               kind: 'skill',
               isAttack: true,
               ignoreArmor: true,
-                      noThorns: true,
+              noThorns: true,
+              noBackstab: true,
               allowDevour: true,
               creditKill: true
             }, events);
@@ -1036,6 +1039,14 @@
         allowDevour: false,
         noThorns: true,
       }, events);
+    }
+
+    if (target.type === 'leso' && target.hp > 0 && total > 0 && opts.isAttack && opts.source && opts.source.alive && !opts.noBackstab) {
+      var thornChance = Math.min(0.85, 0.25 + Math.max(0, total - 1) * 0.15);
+      if (this.rng() < thornChance) {
+        this.pushLog(events, target.name + ' 的荆棘背刺触发（' + Math.round(thornChance * 100) + '%），对 ' + opts.source.name + ' 施加流血。', 'status');
+        this.addBleed(opts.source, target, events);
+      }
     }
 
     if (target.alive && target.type === 'trex' && target.status.devour) {
