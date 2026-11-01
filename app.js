@@ -2245,7 +2245,7 @@
         flashPath(ev.path || []);
         Sound.move();
       } else if (ev.type === 'hook_created') {
-        toast('钩挂已建立');
+        toast(ev.failed ? '目标体型太大，钩挂被弹开' : '钩挂已建立');
         Sound.click();
       } else if (ev.type === 'hook_ended') {
         toast(ev.reason === 'expired' ? '钩挂自动解除' : ev.reason === 'escaped' ? '目标摆脱了钩挂' : '钩挂已解除');
