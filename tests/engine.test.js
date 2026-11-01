@@ -11,7 +11,7 @@ E.SPECIES.dummy = {
   passiveName: '无', passiveDesc: '', skillType: 'active'
 };
 assert.strictEqual(E.BOARD_SIZE, 10, '测试套件版本不匹配：请确认 engine.js 是 10×10 版本');
-console.log('\n测试套件：10×10 棋盘 · 39 项');
+console.log('\n测试套件：10×10 棋盘 · 42 项');
 
 let passed = 0;
 function test(name, fn) {
@@ -734,6 +734,62 @@ test('击杀钩挂目标或来源时日志使用离场原因', () => {
   const events2 = [];
   g2._damage(v2, 99, { ignoreArmor: true, source: t2, kind: 'attack', isAttack: true }, events2);
   assert.ok(events2.some(e => e.type === 'log' && e.text.includes('来源离场')));
+});
+
+test('三角龙物莫能陷格挡攻击并消耗格挡', () => {
+  const g = make(['trike'], ['leso']);
+  const t = g.getUnit('blue-1');
+  const l = g.getUnit('red-2');
+  place(t, 5, 5, 'N'); place(l, 7, 5, 'W');
+  g.round = 3; t.skillReadyRound = 3;
+  assert.strictEqual(t.hp, 10);
+  assert.strictEqual(t.armor, 4);
+  assert.strictEqual(t.attack, 4);
+  assert.strictEqual(t.move, 1);
+  assert.ok(g.useSkill(t.id).ok);
+  assert.strictEqual(t.status.guard, true);
+  assert.strictEqual(t.skillReadyRound, 7);
+  toRed(g);
+  const res = g.attack(l.id, t.id);
+  assert.ok(res.ok, res.error);
+  assert.strictEqual(t.hp, 10);
+  assert.strictEqual(t.armor, 4);
+  assert.strictEqual(t.status.guard, false);
+});
+
+test('三角龙物莫能陷也能格挡攻击性技能', () => {
+  const g = make(['anky'], ['trike']);
+  const a = g.getUnit('blue-1');
+  const t = g.getUnit('red-2');
+  place(a, 5, 5, 'N'); place(t, 6, 5, 'W');
+  g.round = 4; t.skillReadyRound = 4; a.skillReadyRound = 4;
+  g.activeTeam = 'red'; t.turn.actionUsed = false; t.turn.done = false;
+  assert.ok(g.useSkill(t.id).ok);
+  g.activeTeam = 'blue'; a.turn.actionUsed = false; a.turn.done = false;
+  g.rng = seq([0, 0.2]);
+  const res = g.useSkill(a.id, t.id);
+  assert.ok(res.ok, res.error);
+  assert.strictEqual(t.hp, 10);
+  assert.strictEqual(t.armor, 4);
+  assert.strictEqual(t.status.guard, false);
+});
+
+test('吾盾之坚只减免前方与斜前方伤害', () => {
+  const g1 = make(['trike'], ['trex']);
+  const t1 = g1.getUnit('blue-1');
+  const rex1 = g1.getUnit('red-2');
+  place(t1, 5, 5, 'N'); place(rex1, 5, 2, 'S');
+  g1._damage(t1, 5, { source: rex1, kind: 'attack', isAttack: true }, []);
+  assert.strictEqual(t1.armor, 0);
+  assert.strictEqual(t1.hp, 10);
+
+  const g2 = make(['trike'], ['trex']);
+  const t2 = g2.getUnit('blue-1');
+  const rex2 = g2.getUnit('red-2');
+  place(t2, 5, 5, 'N'); place(rex2, 7, 5, 'S');
+  g2._damage(t2, 5, { source: rex2, kind: 'attack', isAttack: true }, []);
+  assert.strictEqual(t2.armor, 0);
+  assert.strictEqual(t2.hp, 9);
 });
 
 console.log('\n通过 ' + passed + ' 项测试' + (process.exitCode ? '，存在失败' : '。'));
