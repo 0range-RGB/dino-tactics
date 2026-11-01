@@ -11,7 +11,7 @@ E.SPECIES.dummy = {
   passiveName: '无', passiveDesc: '', skillType: 'active'
 };
 assert.strictEqual(E.BOARD_SIZE, 10, '测试套件版本不匹配：请确认 engine.js 是 10×10 版本');
-console.log('\n测试套件：10×10 棋盘 · 42 项');
+console.log('\n测试套件：10×10 棋盘 · 44 项');
 
 let passed = 0;
 function test(name, fn) {
@@ -253,7 +253,7 @@ test('尾槌压制只持续目标下一次行动', () => {
   const l = g.getUnit('red-3');
   place(a, 5, 5, 'N'); place(l, 6, 5, 'N'); place(st, 0, 0, 'N');
   g.round = 4; a.skillReadyRound = 4;
-  g.rng = seq([0, 0]);
+  g.rng = seq([0, 0, 0, 0]);
   assert.ok(g.useSkill(a.id, l.id).ok);
   assert.ok(l.status.ankyLock);
   toRed(g); // 红方第 4 回合：被压制
@@ -271,8 +271,8 @@ test('甲龙尾槌破甲时追加 1 点生命伤害并施加压制', () => {
   const l = g.getUnit('red-2');
   place(a, 5, 5, 'N'); place(l, 6, 5, 'N');
   g.round = 4; a.skillReadyRound = 4;
-  // 第一次命中，第二次施加压制。
-  g.rng = seq([0, 0]);
+  // 命中、两次荆棘背刺、压制各消耗一次随机数。
+  g.rng = seq([0, 0, 0, 0]);
   const res = g.useSkill(a.id, l.id);
   assert.ok(res.ok, res.error);
   // 3 点伤害击破 3 点护甲，再追加 1 点生命伤害。
@@ -790,6 +790,47 @@ test('吾盾之坚只减免前方与斜前方伤害', () => {
   g2._damage(t2, 5, { source: rex2, kind: 'attack', isAttack: true }, []);
   assert.strictEqual(t2.armor, 0);
   assert.strictEqual(t2.hp, 9);
+});
+
+test('荆棘背刺按伤害概率对攻击者施加流血', () => {
+  const g1 = make(['leso'], ['dummy']);
+  const l1 = g1.getUnit('blue-1');
+  const a1 = g1.getUnit('red-2');
+  g1.rng = () => 0.2;
+  g1._damage(l1, 1, { source: a1, kind: 'attack', isAttack: true }, []);
+  assert.strictEqual(a1.status.bleed.length, 1);
+
+  const g2 = make(['leso'], ['dummy']);
+  const l2 = g2.getUnit('blue-1');
+  const a2 = g2.getUnit('red-2');
+  g2.rng = () => 0.8;
+  g2._damage(l2, 5, { source: a2, kind: 'attack', isAttack: true }, []);
+  assert.strictEqual(a2.status.bleed.length, 1);
+
+  const g3 = make(['leso'], ['dummy']);
+  const l3 = g3.getUnit('blue-1');
+  const a3 = g3.getUnit('red-2');
+  g3.rng = () => 0.9;
+  g3._damage(l3, 1, { source: a3, kind: 'attack', isAttack: true }, []);
+  assert.strictEqual(a3.status.bleed.length, 0);
+});
+
+test('侧刺对流血目标额外造成 2 点伤害', () => {
+  const g = make(['leso'], ['dummy', 'dummy']);
+  const le = g.getUnit('blue-1');
+  const bleeding = g.getUnit('red-2');
+  const clean = g.getUnit('red-3');
+  place(le, 5, 5, 'N');
+  place(bleeding, 6, 5, 'N');
+  place(clean, 4, 5, 'N');
+  g.round = 3; le.skillReadyRound = 3;
+  g.addBleed(bleeding, le, []);
+  const res = g.useSkill(le.id);
+  assert.ok(res.ok, res.error);
+  assert.strictEqual(bleeding.armor, 0);
+  assert.strictEqual(bleeding.hp, 5);
+  assert.strictEqual(clean.armor, 1);
+  assert.strictEqual(clean.hp, 6);
 });
 
 console.log('\n通过 ' + passed + ' 项测试' + (process.exitCode ? '，存在失败' : '。'));
