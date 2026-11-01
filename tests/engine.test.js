@@ -781,7 +781,15 @@ test('吾盾之坚只减免前方与斜前方伤害', () => {
   place(t1, 5, 5, 'N'); place(rex1, 5, 2, 'S');
   g1._damage(t1, 5, { source: rex1, kind: 'attack', isAttack: true }, []);
   assert.strictEqual(t1.armor, 0);
-  assert.strictEqual(t1.hp, 10);
+  assert.strictEqual(t1.hp, 9.5);
+
+  const gLow = make(['trike'], ['trex']);
+  const tLow = gLow.getUnit('blue-1');
+  const rexLow = gLow.getUnit('red-2');
+  place(tLow, 5, 5, 'N'); place(rexLow, 5, 2, 'S');
+  gLow._damage(tLow, 3, { source: rexLow, kind: 'attack', isAttack: true }, []);
+  assert.strictEqual(tLow.armor, 1.5);
+  assert.strictEqual(tLow.hp, 10);
 
   const g2 = make(['trike'], ['trex']);
   const t2 = g2.getUnit('blue-1');
