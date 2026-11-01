@@ -94,15 +94,17 @@ function defaultLineup(team) {
 function publicRoom(room, forTeam) {
   const playerView = (team) => {
     const p = room.players[team];
-    if (!p) return { team, empty: true, name: '', ready: false, connected: false, lineup: [], capacity: 0 };
+    if (!p) return { team, empty: true, name: '', ready: false, connected: false, lineup: [], lineupHidden: false, capacity: 0 };
+    const hideLineup = room.phase === 'lobby' && forTeam && team !== forTeam;
     return {
       team,
       empty: false,
       name: p.name,
       ready: !!p.ready,
       connected: !!p.connected,
-      lineup: p.lineup.slice(),
-      capacity: capacityOfLineup(p.lineup)
+      lineup: hideLineup ? [] : p.lineup.slice(),
+      lineupHidden: hideLineup,
+      capacity: hideLineup ? null : capacityOfLineup(p.lineup)
     };
   };
   const blue = playerView('blue');
