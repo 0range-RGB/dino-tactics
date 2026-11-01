@@ -225,8 +225,8 @@ test('甲龙护甲减伤与反伤', () => {
   toRed(g);
   const res = g.attack(l.id, a.id);
   assert.ok(res.ok, res.error);
-  // 2 点伤害经 15% 减伤后仍为 2，护甲 5 - 2；反伤 1。
-  assert.strictEqual(a.armor, 3);
+  // 2 点伤害经 15% 减伤后仍为 2，护甲 4 - 2；反伤 1。
+  assert.strictEqual(a.armor, 2);
   assert.strictEqual(l.armor, 2);
 });
 
@@ -330,7 +330,7 @@ test('侧刺同时攻击两侧并附加流血', () => {
   assert.ok(res.ok, res.error);
   assert.strictEqual(tr.armor, 1);
   assert.strictEqual(tr.status.bleed.length, 1);
-  assert.strictEqual(an.armor, 2);
+  assert.strictEqual(an.armor, 1);
   assert.strictEqual(an.hp, 4);
   assert.strictEqual(le.turn.done, true);
 });
@@ -744,9 +744,9 @@ test('三角龙物莫能陷格挡攻击并消耗格挡', () => {
   const l = g.getUnit('red-2');
   place(t, 5, 5, 'N'); place(l, 7, 5, 'W');
   g.round = 3; t.skillReadyRound = 3;
-  assert.strictEqual(t.hp, 10);
+  assert.strictEqual(t.hp, 12);
   assert.strictEqual(t.armor, 4);
-  assert.strictEqual(t.attack, 4);
+  assert.strictEqual(t.attack, 5);
   assert.strictEqual(t.move, 1);
   assert.ok(g.useSkill(t.id).ok);
   assert.strictEqual(t.status.guard, true);
@@ -754,7 +754,7 @@ test('三角龙物莫能陷格挡攻击并消耗格挡', () => {
   toRed(g);
   const res = g.attack(l.id, t.id);
   assert.ok(res.ok, res.error);
-  assert.strictEqual(t.hp, 10);
+  assert.strictEqual(t.hp, 12);
   assert.strictEqual(t.armor, 4);
   assert.strictEqual(t.status.guard, false);
 });
@@ -771,7 +771,7 @@ test('三角龙物莫能陷也能格挡攻击性技能', () => {
   g.rng = seq([0, 0.2]);
   const res = g.useSkill(a.id, t.id);
   assert.ok(res.ok, res.error);
-  assert.strictEqual(t.hp, 10);
+  assert.strictEqual(t.hp, 12);
   assert.strictEqual(t.armor, 4);
   assert.strictEqual(t.status.guard, false);
 });
@@ -783,7 +783,7 @@ test('吾盾之坚只减免前方与斜前方伤害', () => {
   place(t1, 5, 5, 'N'); place(rex1, 5, 2, 'S');
   g1._damage(t1, 5, { source: rex1, kind: 'attack', isAttack: true }, []);
   assert.strictEqual(t1.armor, 0);
-  assert.strictEqual(t1.hp, 9.5);
+  assert.strictEqual(t1.hp, 11.5);
 
   const gLow = make(['trike'], ['trex']);
   const tLow = gLow.getUnit('blue-1');
@@ -791,7 +791,7 @@ test('吾盾之坚只减免前方与斜前方伤害', () => {
   place(tLow, 5, 5, 'N'); place(rexLow, 5, 2, 'S');
   gLow._damage(tLow, 3, { source: rexLow, kind: 'attack', isAttack: true }, []);
   assert.strictEqual(tLow.armor, 1.5);
-  assert.strictEqual(tLow.hp, 10);
+  assert.strictEqual(tLow.hp, 12);
 
   const g2 = make(['trike'], ['trex']);
   const t2 = g2.getUnit('blue-1');
@@ -799,7 +799,7 @@ test('吾盾之坚只减免前方与斜前方伤害', () => {
   place(t2, 5, 5, 'N'); place(rex2, 7, 5, 'S');
   g2._damage(t2, 5, { source: rex2, kind: 'attack', isAttack: true }, []);
   assert.strictEqual(t2.armor, 0);
-  assert.strictEqual(t2.hp, 9);
+  assert.strictEqual(t2.hp, 11);
 });
 
 test('荆棘背刺按伤害概率对攻击者施加流血', () => {
