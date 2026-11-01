@@ -15,11 +15,12 @@
   var CAN_HOVER = !!(window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches);
 
   var DEFAULT_SETUP = {
-    blue: { trex: 0, leso: 1, stego: 1, anky: 1, velo: 0 },
-    red: { trex: 1, leso: 1, stego: 0, anky: 0, velo: 0 }
+    blue: { trike: 1, trex: 0, leso: 1, stego: 0, anky: 0, velo: 0 },
+    red: { trike: 0, trex: 1, leso: 1, stego: 0, anky: 0, velo: 0 }
   };
 
   var DINO_SVG = {
+    trike: '<svg viewBox="0 0 64 64" aria-hidden="true"><path fill="currentColor" d="M9 40c1-7 6-11 13-13l2-7 5 5 10 1c8 1 13 5 14 12l-1 9H39l-3 9h-7l3-9H20l-4 8-6-2 3-8c-3-1-4-3-4-5z"/><path fill="currentColor" opacity=".62" d="M23 25l-8-11 4 13L8 21l8 10-7 9 11-6 5 4 3-11z"/><path fill="currentColor" d="M30 17l-4-9 7 6 7-2-5 8z"/><circle cx="46" cy="34" r="1.6" fill="#081310"/></svg>',
     trex: '<svg viewBox="0 0 64 64" aria-hidden="true"><path fill="currentColor" d="M4 48c7-1 10-4 12-9l4-10 8-6 9 1 5-5 9 3 1 6-5 4 1 5-7 6-3 12h-7l2-11-8 4-4 9h-7l4-11-9-2z"/><path fill="currentColor" d="M43 25l8-3 6 2-4 3z" opacity=".72"/><path fill="currentColor" d="M47 30l3 2-3 1zM44 33l3 2-3 1z" opacity=".8"/><path fill="currentColor" d="M34 39l5 1-2 5-4-1z" opacity=".8"/><circle cx="53" cy="25" r="1.4" fill="#081310"/></svg>',
     leso: '<svg viewBox="0 0 64 64" aria-hidden="true"><path fill="currentColor" d="M6 48c8-1 15-7 19-14l-1-8 4-10 7 3-2 10 7 6 12 2-1 8-15 1-5 9-6-1 2-8-12 8-6-2 4-8-7 1z"/><path fill="currentColor" d="M28 19l-2-9 6 5 5-3-2 9z" opacity=".65"/><path fill="currentColor" d="M40 45l5 2-1 7-5-1z" opacity=".7"/><circle cx="30" cy="17" r="1.4" fill="#081310"/></svg>',
     stego: '<svg viewBox="0 0 64 64" aria-hidden="true"><path fill="currentColor" d="M7 46c2-6 7-10 14-11l5-8 8 5 8-1-2 7 6 6-6 6-2 9-7-4-2 5-7-6-10 2z"/><path fill="currentColor" opacity=".72" d="M21 28l4-11 4 9zM30 23l4-10 4 9zM39 23l4-9 4 8z"/><path fill="currentColor" d="M9 45l-6-6 1 9-5 1 7 3z"/><path fill="currentColor" d="M14 29l-4-7 7 2 1 6z" opacity=".65"/><circle cx="48" cy="39" r="1.4" fill="#081310"/></svg>',
@@ -109,6 +110,10 @@
     heal: function () {
       this.tone(520, 0.16, 'sine', 0.024);
       this.tone(780, 0.2, 'sine', 0.018, 0.08);
+    },
+    guard: function () {
+      this.tone(330, 0.2, 'triangle', 0.026);
+      this.tone(660, 0.12, 'sine', 0.018, 0.06);
     },
     crit: function () {
       this.tone(180, 0.08, 'square', 0.03);
@@ -506,7 +511,7 @@
       counts[pick] += 1;
       budget -= 2;
     }
-    if (capacityOf(counts) === 0) counts.stego += 1;
+    if (capacityOf(counts) === 0) counts.trike += 1;
     return counts;
   }
 
@@ -1743,7 +1748,7 @@
     state.online.name = name;
     if (!state.online.testMode) { try { localStorage.setItem('dino-online-name', name); } catch (err) {} }
     var lineup = lineupOf(state.setup.blue);
-    if (capacityOf(state.setup.blue) <= 0) lineup = ['stego', 'anky', 'leso'];
+    if (capacityOf(state.setup.blue) <= 0) lineup = ['trike', 'leso'];
     sendOnline({ type: 'create', name: name, lineup: lineup });
     state.online.lineupCounts = countsFromLineup(lineup);
     els.onlineConnectHint.textContent = '正在创建房间…';
@@ -2225,6 +2230,10 @@
         ringAt(ev.x, ev.y, 'heal');
         flashToken(ev.unitId, 'healed');
         Sound.heal();
+      } else if (ev.type === 'guard') {
+        floatAt(ev.x, ev.y, '格挡', 'guard');
+        ringAt(ev.x, ev.y, 'guard');
+        Sound.guard();
       } else if (ev.type === 'crit') {
         crits += 1;
         var critTarget = state.game && state.game.getUnit(ev.targetId);
@@ -2751,6 +2760,14 @@
       }
     }
 
+    if (unit.type === 'trike' && g.getSkillStatus(unit).ready) {
+      var threat = g.getEnemies(unit.team).some(function (e) { return E.distance(unit, e) <= 2; });
+      if (threat) {
+        await perform(function () { return g.useSkill(unit.id); });
+        return;
+      }
+    }
+
     // 重新选择目标（技能可能改变局面）。
     target = chooseAITarget(unit);
     if (!target) {
@@ -2819,6 +2836,8 @@
       var sb = db * 3.6 + b.hp * 1.05 + b.armor * 0.55;
       if (a.hp <= atk) sa -= 8;
       if (b.hp <= atk) sb -= 8;
+      if (a.status.guard) sa += 5;
+      if (b.status.guard) sb += 5;
       if (a.type === 'trex') sa -= 2.5;
       if (b.type === 'trex') sb -= 2.5;
       return sa - sb;
@@ -2983,7 +3002,7 @@
         '<p>双方各有一支容量为 <b>6</b> 的恐龙军团，在 10 × 10 的方格战场上轮流行动。开局先在各自半场布阵，再进入战斗；消灭对方全部恐龙即可获胜。</p>' +
         '<div class="rule-grid">' +
           '<div class="rule-box"><strong>开局布阵</strong><span>开局时双方可在本方半场任意空格放置恐龙并调整朝向，不消耗行动力。双方完成布阵后，蓝方先手进入第 1 回合。</span></div>' +
-          '<div class="rule-box"><strong>队伍容量与占格</strong><span>小型恐龙占 1 格、消耗 1 容量；中型占 2 格 / 2 容量；霸王龙占 4 格 / 4 容量。可重复编入同种恐龙，但每队总容量不能超过 6。</span></div>' +
+          '<div class="rule-box"><strong>队伍容量与占格</strong><span>小型恐龙占 1 格、消耗 1 容量；中型占 2 格 / 2 容量；三角龙与霸王龙为大型，占 4 格 / 4 容量。可重复编入同种恐龙，但每队总容量不能超过 6。</span></div>' +
           '<div class="rule-box"><strong>行动流程</strong><span>每只恐龙每回合可移动，然后攻击或发动技能；也可以不移动。攻击或结束行动后该单位本回合结束。</span></div>' +
           '<div class="rule-box"><strong>整体移动</strong><span>恐龙占据的格子视为一个整体，按前后左右整体平移，不拆分；平移不会改变朝向，转向仍用朝向按钮单独操作。虚线框显示移动后的完整占位，点击框内任意格即可整体移动。</span></div>' +
           '<div class="rule-box"><strong>攻击范围</strong><span>自身占格外围一圈的相邻方格。大型 2×2、中型 2 格长条都按整个身体计算攻击范围；移动后可攻击，攻击后不能再移动。</span></div>' +
@@ -2993,9 +3012,11 @@
           '<div class="rule-box"><strong>技能冷却</strong><span>每只恐龙拥有一个主动技能，冷却按技能标注。游戏开始即进入冷却，冷却结束后可再次发动。</span></div>' +
           '<div class="rule-box"><strong>胜利条件</strong><span>任意一方的恐龙全部被消灭时，另一方立即获胜。双方同时全灭则平局。</span></div>' +
         '</div>' +
-        '<h4>操作提示</h4><ul><li>开局布阵：点击己方恐龙，再点高亮格预览整只恐龙的落位，确认后放置。</li><li>战斗阶段：点击己方恐龙，再点击虚线框内任意格；整只恐龙会按占格整体平移过去。</li><li>相邻敌人会以红色高亮，点击即可攻击。</li><li>按 <b>E</b> 结束当前回合，按 <b>Esc</b> 取消技能选择。</li><li>朝向可在行动前自由调整，不消耗行动力；恐龙图标和朝向箭头会同步旋转。它影响侧刺反击的方向。</li></ul>';
+        '<h4>操作提示</h4><ul><li>开局布阵：点击己方恐龙，再点高亮格预览整只恐龙的落位，确认后放置。</li><li>战斗阶段：点击己方恐龙，再点击虚线框内任意格；整只恐龙会按占格整体平移过去。</li><li>相邻敌人会以红色高亮，点击即可攻击。</li><li>按 <b>E</b> 结束当前回合，按 <b>Esc</b> 取消技能选择。</li><li>朝向可在行动前自由调整，不消耗行动力；恐龙图标和朝向箭头会同步旋转。它影响侧刺反击的方向与三角龙的减伤方向。</li></ul>';
     } else if (state.rulesTab === 'status') {
       html = '<h3>异常状态与特殊形态</h3><div class="rule-grid">' +
+        '<div class="rule-box"><strong>物莫能陷</strong><span>三角龙架盾，完全格挡下一次攻击或攻击性技能，不受到该次伤害；触发后效果消失。技能冷却 3 回合。</span></div>' +
+        '<div class="rule-box"><strong>吾盾之坚</strong><span>以三角龙朝向为前方，来自前方与斜前方的伤害减少 15%（四舍五入）；来自侧面或背后的伤害不减。</span></div>' +
         '<div class="rule-box"><strong>流血</strong><span>持续 4 回合。每层在倒计时结束后直接损失 1 点生命（无视护甲），并移除该层；最多叠加 2 层。连续 3 回合未受攻击伤害时，也会失去 1 层。</span></div>' +
         '<div class="rule-box"><strong>反击形态</strong><span>剑龙开启后持续 2 回合：攻击力 +1，命中时 25% 流血、12.5% 穿刺。穿刺造成双倍伤害后形态结束，护甲上限 -1、攻击力 -1，本局无法再次穿刺。</span></div>' +
         '<div class="rule-box"><strong>吞食</strong><span>霸王龙击杀敌人后进入吞食，按猎物容量需要 1 / 2 / 3 回合，每回合恢复 1 点生命。期间不能攻击、移动或使用主动技能。受到 ≥3 点伤害会打断吞食，进度保留。生命低于 4 时改为普通击杀恢复。</span></div>' +
