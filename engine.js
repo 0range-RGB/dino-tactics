@@ -21,6 +21,26 @@
   };
 
   var SPECIES = {
+    trike: {
+      type: 'trike',
+      name: '三角龙',
+      latin: 'Triceratops',
+      size: 4,
+      role: '重装壁垒',
+      tags: ['物莫能陷', '吾盾之坚'],
+      hp: 10,
+      armor: 4,
+      attack: 4,
+      move: 1,
+      skillCd: 3,
+      accent: '#61d4b3',
+      emblem: '盾',
+      skillName: '物莫能陷',
+      skillDesc: '完全格挡下一次攻击或攻击性技能，不受到伤害；触发后效果消失。冷却 3 回合。',
+      passiveName: '吾盾之坚',
+      passiveDesc: '以朝向为前方，来自前方和斜前方的伤害减少 15%。',
+      skillType: 'active'
+    },
     trex: {
       type: 'trex',
       name: '霸王龙',
@@ -123,7 +143,7 @@
     }
   };
 
-  var SPECIES_ORDER = ['trex', 'leso', 'stego', 'anky', 'velo'];
+  var SPECIES_ORDER = ['trike', 'trex', 'leso', 'stego', 'anky', 'velo'];
 
   var HOOK_MAX_STACKS = { small: 2, medium: 3 };
   var HOOK_ESCAPE_RANGE = { small: [0.25, 0.45], medium: [0.45, 0.75] };
@@ -190,6 +210,14 @@
     return best;
   }
 
+  function centerFor(obj) {
+    var cells = cellsFor(obj);
+    if (!cells.length) return null;
+    var sx = 0, sy = 0;
+    cells.forEach(function (c) { sx += c.x; sy += c.y; });
+    return { x: sx / cells.length, y: sy / cells.length };
+  }
+
   function inBoard(x, y) { return x >= 0 && x < BOARD_SIZE && y >= 0 && y < BOARD_SIZE; }
   function roundHalf(v) { return Math.round(v * 2) / 2; }
   function teamName(team) { return TEAM_INFO[team] ? TEAM_INFO[team].name : team; }
@@ -208,7 +236,7 @@
     this.nextCorpseId = 1;
     this.startupEvents = [];
 
-    this.buildTeam('blue', config.blueTeam || ['stego', 'anky', 'leso']);
+    this.buildTeam('blue', config.blueTeam || ['trike', 'leso']);
     this.buildTeam('red', config.redTeam || ['trex', 'leso']);
     this.deployTeams();
 
@@ -260,6 +288,7 @@
           ankyLock: null,
           devour: null,
           assaultBonus: 0,
+          guard: false,
           hook: null,
           hookReceived: [],
           hookEscapeRound: 0
@@ -591,6 +620,21 @@
     return !!(unit && unit.status.formUntil && this.round <= unit.status.formUntil);
   };
 
+  Game.prototype.isInFacingArc = function (target, source) {
+    if (!target || !source) return false;
+    var dir = DIRECTIONS[target.facing];
+    if (!dir) return false;
+    var tc = centerFor(target);
+    var sc = centerFor(source);
+    if (!tc || !sc) return false;
+    var vx = sc.x - tc.x;
+    var vy = sc.y - tc.y;
+    var len = Math.sqrt(vx * vx + vy * vy);
+    if (len === 0) return false;
+    var dot = (vx * dir.x + vy * dir.y) / len;
+    return dot >= Math.SQRT1_2 - 1e-9;
+  };
+
   Game.prototype.isAdjacent = function (a, b) {
     return distance(a, b) === 1;
   };
@@ -669,6 +713,8 @@
       result.targets = [hookCheck.target];
     } else if (unit.type === 'stego') {
       if (this.isFormActive(unit)) { result.reason = '反击形态已开启'; return result; }
+    } else if (unit.type === 'trike') {
+      if (unit.status.guard) { result.reason = '物莫能陷已经处于待发状态'; return result; }
     }
 
     result.ready = true;
@@ -694,7 +740,14 @@
     this.pushLog(events, unit.name + ' 发动技能「' + def.skillName + '」。', 'skill');
     events.push({ type: 'skill', unitId: unit.id, name: def.skillName, x: unit.x, y: unit.y });
 
-    if (unit.type === 'trex') {
+    if (unit.type === 'trike') {
+      unit.status.guard = true;
+      unit.turn.skillUsed = true;
+      unit.skillReadyRound = this.round + def.skillCd + 1;
+      this.consumeAction(unit);
+      this.pushLog(events, unit.name + ' 架起物莫能陷，完全格挡下一次攻击或攻击性技能。', 'status');
+      events.push({ type: 'status', unitId: unit.id, status: 'guard-on' });
+    } else if (unit.type === 'trex') {
       unit.turn.moveLeft += 2;
       unit.turn.extraMove += 2;
       unit.turn.skillUsed = true;
@@ -908,6 +961,19 @@
     var amount = raw;
     var notes = [];
 
+    if (target.type === 'trike' && target.status.guard && opts.isAttack) {
+      target.status.guard = false;
+      this.pushLog(events, target.name + ' 的物莫能陷完全格挡了这次攻击！', 'guard');
+      events.push({ type: 'guard', unitId: target.id, x: target.x, y: target.y, sourceId: opts.source ? opts.source.id : null });
+      return { blocked: true, applied: 0, armorDamage: 0, hpDamage: 0 };
+    }
+
+    if (target.type === 'trike' && opts.isAttack && opts.source && opts.source.alive && this.isInFacingArc(target, opts.source)) {
+      var guarded = Math.max(1, Math.round(amount * 0.85));
+      if (guarded < amount) notes.push('吾盾之坚 ' + (amount - guarded));
+      amount = guarded;
+    }
+
     if (target.type === 'anky' && target.armor > 0 && amount > 0 && !opts.ignoreArmor) {
       var reduced = Math.max(1, Math.round(amount * 0.85));
       if (reduced < amount) notes.push('甲壳减伤 ' + (amount - reduced));
@@ -997,6 +1063,7 @@
     if (!target.alive) return;
     target.alive = false;
     target.hp = 0;
+    target.status.guard = false;
     target.status.devour = null;
     this.pushLog(events, '☠ ' + target.name + ' 被击败！', 'death');
     events.push({ type: 'death', unitId: target.id, x: target.x, y: target.y, team: target.team });
@@ -1487,6 +1554,7 @@
   Game.prototype.getStatusList = function (unit) {
     var list = [];
     if (!unit || !unit.alive) return list;
+    if (unit.status.guard) list.push({ key: 'guard', label: '物莫能陷待发', short: '盾' });
     if (unit.status.hook) {
       var hookedTarget = this.getUnit(unit.status.hook.targetId);
       list.push({ key: 'hook', label: '钩挂 · ' + (hookedTarget ? hookedTarget.name : '目标'), short: '钩' });
