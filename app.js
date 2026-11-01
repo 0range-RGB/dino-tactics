@@ -2473,6 +2473,13 @@
     }
 
 
+    // 棋子优先于落点：点击己方棋子只切换选中，不能因为锚点恰好是落点而误移动。
+    if (tokenEl && unit && isHumanTurn() && unit.team === state.game.activeTeam) {
+      state.skillMode = null;
+      selectUnit(unit.id);
+      return;
+    }
+
     var selectedSelf = state.game.getUnit(state.selectedId);
     if (selectedSelf && isHumanTurn() && state.game.phase === 'battle' &&
       selectedSelf.alive && !selectedSelf.turn.done && !(selectedSelf.status.devour && selectedSelf.status.devour.active)) {
