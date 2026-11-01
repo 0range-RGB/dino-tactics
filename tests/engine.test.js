@@ -2,8 +2,16 @@
 'use strict';
 const assert = require('assert');
 const E = require('../engine.js');
+
+// 仅测试用木桩：替代已删除的三角龙作为通用多格目标。
+E.SPECIES.dummy = {
+  type: 'dummy', name: '测试木桩', latin: 'Dummy', size: 2, role: 'fixture', tags: [],
+  hp: 6, armor: 4, attack: 3, move: 1, skillCd: 2,
+  accent: '#888', emblem: '桩', skillName: '无', skillDesc: '',
+  passiveName: '无', passiveDesc: '', skillType: 'active'
+};
 assert.strictEqual(E.BOARD_SIZE, 10, '测试套件版本不匹配：请确认 engine.js 是 10×10 版本');
-console.log('\n测试套件：10×10 棋盘 · 44 项');
+console.log('\n测试套件：10×10 棋盘 · 39 项');
 
 let passed = 0;
 function test(name, fn) {
@@ -43,7 +51,7 @@ function toNextRound(g) {
 
 console.log('\n基础');
 test('队伍容量与初始技能冷却', () => {
-  const g = make(['trike', 'stego', 'anky'], ['trex', 'leso']);
+  const g = make(['dummy', 'stego', 'anky'], ['trex', 'leso']);
   assert.strictEqual(g.units.length, 5);
   assert.strictEqual(g.getTeamUnits('blue').length, 3);
   assert.strictEqual(g.getTeamUnits('red').length, 2);
@@ -53,7 +61,7 @@ test('队伍容量与初始技能冷却', () => {
 });
 
 test('剑龙行动力为 2', () => {
-  const g = make(['stego'], ['trike']);
+  const g = make(['stego'], ['dummy']);
   const s = g.getUnit('blue-1');
   assert.strictEqual(E.SPECIES.stego.move, 2);
   assert.strictEqual(s.move, 2);
@@ -73,7 +81,7 @@ test('多格单位按整体占位平移并以整块落点选择', () => {
   assert.ok(g.moveUnit(rex.id, picked.x, picked.y).ok);
   assert.deepStrictEqual(g.getFootprint(rex).map(c => c.x + ',' + c.y).sort(), ['6,5', '6,6', '7,5', '7,6']);
 
-  const g2 = make(['trike'], ['leso']);
+  const g2 = make(['dummy'], ['leso']);
   const tr = g2.getUnit('blue-1');
   const l2 = g2.getUnit('red-2');
   place(tr, 5, 5, 'N'); place(l2, 0, 0, 'N');
@@ -87,7 +95,7 @@ test('多格单位按整体占位平移并以整块落点选择', () => {
 });
 
 test('开局布阵阶段可自由放置并对半场校验', () => {
-  const g = new E.Game({ blueTeam: ['trike', 'stego'], redTeam: ['leso'], deployOnly: true });
+  const g = new E.Game({ blueTeam: ['dummy', 'stego'], redTeam: ['leso'], deployOnly: true });
   assert.strictEqual(g.phase, 'deploy');
   assert.strictEqual(g.activeTeam, null);
   const t = g.getUnit('blue-1');
@@ -125,7 +133,7 @@ test('布阵阶段多格单位可整体平移 1 格', () => {
   // 仍不能平移叠到其他单位身上。
   assert.strictEqual(g.deployMove(le.id, rex.x, rex.y).ok, false);
 
-  const g2 = new E.Game({ blueTeam: ['trike'], redTeam: ['leso'], deployOnly: true });
+  const g2 = new E.Game({ blueTeam: ['dummy'], redTeam: ['leso'], deployOnly: true });
   const tr = g2.getUnit('blue-1');
   const cells = g2.getDeployCells(tr);
   [[0, -1], [0, 1], [-1, 0], [1, 0]].forEach(([dx, dy]) => {
@@ -179,7 +187,7 @@ test('超出容量的阵容会被拒绝', () => {
 
 console.log('\n移动与攻击');
 test('移动消耗行动力且不能穿过单位', () => {
-  const g = make(['leso'], ['trike']);
+  const g = make(['leso'], ['dummy']);
   const u = g.getUnit('blue-1');
   place(u, 6, 6, 'N');
   place(g.getUnit('red-2'), 0, 1, 'S');
@@ -194,7 +202,7 @@ test('移动消耗行动力且不能穿过单位', () => {
 });
 
 test('攻击先扣护甲再扣生命，击杀恢复 1.5', () => {
-  const g = make(['trike'], ['leso']);
+  const g = make(['dummy'], ['leso']);
   const t = g.getUnit('blue-1');
   const l = g.getUnit('red-2');
   place(t, 5, 5, 'N'); place(l, 6, 5, 'N');
@@ -206,26 +214,6 @@ test('攻击先扣护甲再扣生命，击杀恢复 1.5', () => {
   assert.strictEqual(t.hp, 5.5);
   assert.strictEqual(g.phase, 'gameover');
   assert.strictEqual(g.winner, 'blue');
-});
-
-test('三角龙防御反击完全格挡并反伤 4', () => {
-  const g = make(['trike'], ['leso']);
-  const t = g.getUnit('blue-1');
-  const l = g.getUnit('red-2');
-  place(t, 5, 5, 'N'); place(l, 6, 5, 'N');
-  g.round = 3;
-  t.skillReadyRound = 3;
-  const skill = g.useSkill(t.id);
-  assert.ok(skill.ok, skill.error);
-  assert.strictEqual(t.status.guard, true);
-  toRed(g);
-  const res = g.attack(l.id, t.id);
-  assert.ok(res.ok, res.error);
-  assert.strictEqual(t.hp, 6);
-  assert.strictEqual(t.armor, 4);
-  assert.strictEqual(t.status.guard, false);
-  assert.strictEqual(l.armor, 0);
-  assert.strictEqual(l.hp, 5);
 });
 
 console.log('\n被动');
@@ -240,47 +228,6 @@ test('甲龙护甲减伤与反伤', () => {
   // 2 点伤害经 15% 减伤后仍为 2，护甲 5 - 2；反伤 1。
   assert.strictEqual(a.armor, 3);
   assert.strictEqual(l.armor, 2);
-});
-
-test('希腊方阵正面减伤', () => {
-  const g = make(['trike', 'trike'], ['trex']);
-  const t1 = g.getUnit('blue-1');
-  const t2 = g.getUnit('blue-2');
-  const rex = g.getUnit('red-3');
-  place(t1, 5, 5, 'N'); place(t2, 6, 5, 'N'); place(rex, 5, 3, 'S');
-  assert.strictEqual(g.getPhalanxSize(t1), 2);
-  toRed(g);
-  const res = g.attack(rex.id, t1.id);
-  assert.ok(res.ok, res.error);
-  // 7 - 2 = 5：4 点护甲吸收后，追加 1 点生命伤害。
-  assert.strictEqual(t1.armor, 0);
-  assert.strictEqual(t1.hp, 5);
-});
-
-test('方阵不会自我计数、重复计数或计入敌方', () => {
-  // 单只三角龙：自己的尾巴不能算成另一只。
-  const g1 = make(['trike'], ['leso']);
-  const t1 = g1.getUnit('blue-1');
-  place(t1, 5, 5, 'E');
-  place(g1.getUnit('red-2'), 0, 0, 'N');
-  assert.strictEqual(g1.getPhalanxSize(t1), 0);
-
-  // 敌方同向三角龙不能凑方阵。
-  const g2 = make(['trike'], ['trike']);
-  const t2 = g2.getUnit('blue-1');
-  place(t2, 5, 5, 'N');
-  place(g2.getUnit('red-2'), 6, 5, 'N');
-  assert.strictEqual(g2.getPhalanxSize(t2), 0);
-
-  // 头尾同时落在扫描线上时，同一只友军只计一次。
-  const g3 = make(['trike', 'trike'], ['leso']);
-  const a = g3.getUnit('blue-1');
-  const b = g3.getUnit('blue-2');
-  place(a, 5, 5, 'E');
-  place(b, 7, 5, 'E');
-  place(g3.getUnit('red-3'), 0, 0, 'N');
-  assert.strictEqual(g3.getPhalanxSize(a), 2);
-  assert.strictEqual(g3.getPhalanxSize(b), 2);
 });
 
 test('甲龙被致命一击时不会触发反伤复活', () => {
@@ -318,26 +265,6 @@ test('尾槌压制只持续目标下一次行动', () => {
   assert.strictEqual(l.status.ankyLock, null);
 });
 
-test('侧刺被防御反击击杀后不会继续攻击另一侧', () => {
-  const g = make(['leso', 'stego'], ['trike', 'anky']);
-  const le = g.getUnit('blue-1');
-  const st = g.getUnit('blue-2');
-  const tr = g.getUnit('red-3');
-  const an = g.getUnit('red-4');
-  place(le, 5, 5, 'N');
-  place(st, 0, 0, 'N');
-  place(tr, 6, 5, 'N');
-  place(an, 4, 5, 'N');
-  le.hp = 1;
-  tr.status.guard = true;
-  g.round = 3; le.skillReadyRound = 3;
-  const res = g.useSkill(le.id);
-  assert.ok(res.ok, res.error);
-  assert.strictEqual(le.alive, false);
-  assert.strictEqual(an.armor, 5);
-  assert.strictEqual(an.hp, 4);
-});
-
 test('甲龙尾槌破甲时追加 1 点生命伤害并施加压制', () => {
   const g = make(['anky'], ['leso']);
   const a = g.getUnit('blue-1');
@@ -358,7 +285,7 @@ test('甲龙尾槌破甲时追加 1 点生命伤害并施加压制', () => {
 });
 
 test('甲龙尾槌未破甲时追加 2 点护甲伤害', () => {
-  const g = make(['anky'], ['trike']);
+  const g = make(['anky'], ['dummy']);
   const a = g.getUnit('blue-1');
   const t = g.getUnit('red-2');
   place(a, 5, 5, 'N'); place(t, 6, 5, 'N');
@@ -390,7 +317,7 @@ test('甲龙尾槌未命中时不造成伤害', () => {
 
 console.log('\n技能与状态');
 test('侧刺同时攻击两侧并附加流血', () => {
-  const g = make(['leso'], ['trike', 'anky']);
+  const g = make(['leso'], ['dummy', 'anky']);
   const le = g.getUnit('blue-1');
   const tr = g.getUnit('red-2');
   const an = g.getUnit('red-3');
@@ -431,7 +358,7 @@ test('剑龙反击形态穿刺造成双倍伤害并永久削弱', () => {
 });
 
 test('霸王龙突袭 +2 行动力且仍可攻击', () => {
-  const g = make(['trike'], ['trex']);
+  const g = make(['dummy'], ['trex']);
   const rex = g.getUnit('red-2');
   const t = g.getUnit('blue-1');
   place(rex, 3, 2, 'S');
@@ -454,7 +381,7 @@ test('霸王龙突袭 +2 行动力且仍可攻击', () => {
 });
 
 test('突袭攻击加成保留到下一次攻击', () => {
-  const g = make(['trike'], ['trex']);
+  const g = make(['dummy'], ['trex']);
   const rex = g.getUnit('red-2');
   const t = g.getUnit('blue-1');
   place(rex, 3, 2, 'S');
@@ -473,22 +400,6 @@ test('突袭攻击加成保留到下一次攻击', () => {
   assert.ok(res.ok, res.error);
   assert.strictEqual(t.hp, 2);
   assert.strictEqual(rex.status.assaultBonus, 0);
-});
-
-test('技能冷却按完整回合计算', () => {
-  const g = make(['trike'], ['leso']);
-  const t = g.getUnit('blue-1');
-  g.round = 3; t.skillReadyRound = 3;
-  assert.ok(g.useSkill(t.id).ok);
-  assert.strictEqual(t.skillReadyRound, 6);
-  t.turn.done = false;
-  t.turn.actionUsed = false;
-  t.turn.skillUsed = false;
-  t.status.guard = false;
-  g.round = 5;
-  assert.strictEqual(g.getSkillStatus(t).ready, false);
-  g.round = 6;
-  assert.strictEqual(g.getSkillStatus(t).ready, true);
 });
 
 console.log('\n吞食');
@@ -601,7 +512,7 @@ test('回合结束恢复护甲、连续 3 回合未受伤恢复生命', () => {
 });
 
 test('流血倒计时结束后直接损失 1 点生命', () => {
-  const g = make(['trike'], ['leso']);
+  const g = make(['dummy'], ['leso']);
   const l = g.getUnit('red-2');
   l.hp = 6; l.armor = 3; l.lastHitRound = 1;
   l.status.bleed = [{ remaining: 1, sourceId: 'blue-1' }];
@@ -613,7 +524,7 @@ test('流血倒计时结束后直接损失 1 点生命', () => {
 });
 
 test('连续 3 回合未受伤会消退一层流血', () => {
-  const g = make(['trike'], ['leso']);
+  const g = make(['dummy'], ['leso']);
   const l = g.getUnit('red-2');
   l.hp = 6; l.armor = 3; l.lastHitRound = 0;
   l.status.bleed = [{ remaining: 4, sourceId: 'blue-1' }];
@@ -624,7 +535,7 @@ test('连续 3 回合未受伤会消退一层流血', () => {
 });
 
 test('流血最多两层，超出时刷新最短层', () => {
-  const g = make(['leso'], ['trike']);
+  const g = make(['leso'], ['dummy']);
   const le = g.getUnit('blue-1');
   const tr = g.getUnit('red-2');
   const events = [];
@@ -638,7 +549,7 @@ test('流血最多两层，超出时刷新最短层', () => {
 });
 
 test('第15回合起所有单位每回合失去1点生命', () => {
-  const g = make(['trike'], ['anky']);
+  const g = make(['dummy'], ['anky']);
   const tr = g.getUnit('blue-1');
   const an = g.getUnit('red-2');
   g.round = 14;
@@ -658,7 +569,7 @@ test('第15回合起所有单位每回合失去1点生命', () => {
 });
 
 test('环境侵蚀同时击杀双方时判平局', () => {
-  const g = make(['trike'], ['leso']);
+  const g = make(['dummy'], ['leso']);
   g.round = 15;
   g.units.forEach(u => { u.hp = 1; u.lastHitRound = 15; });
   g.endRound([]);
@@ -724,7 +635,7 @@ test('受钩挂层数上限与摆脱', () => {
 });
 
 test('钩挂手动解除与自动解除', () => {
-  const g = make(['velo'], ['trike']);
+  const g = make(['velo'], ['dummy']);
   const v = g.getUnit('blue-1');
   const t = g.getUnit('red-2');
   place(v, 5, 5, 'E'); place(t, 6, 5, 'W');
@@ -737,7 +648,7 @@ test('钩挂手动解除与自动解除', () => {
   assert.strictEqual(g.getHookStacks(t).length, 0);
   assert.strictEqual(v.status.hook, null);
 
-  const g2 = make(['velo'], ['trike']);
+  const g2 = make(['velo'], ['dummy']);
   const v2 = g2.getUnit('blue-1');
   const t2 = g2.getUnit('red-2');
   place(v2, 5, 5, 'E'); place(t2, 6, 5, 'W');
@@ -767,7 +678,7 @@ test('大型目标反震、后退与退路阻挡', () => {
 });
 
 test('钩挂期间技能暂停充能，目标移动会牵引来源', () => {
-  const g = make(['velo'], ['trike']);
+  const g = make(['velo'], ['dummy']);
   const v = g.getUnit('blue-1');
   const t = g.getUnit('red-2');
   place(v, 5, 5, 'E'); place(t, 6, 5, 'W');
