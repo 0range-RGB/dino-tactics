@@ -1419,6 +1419,7 @@ button:focus-visible, [role="button"]:focus-visible {
 .rp-ready.on { color: var(--teal); border-color: rgba(79,209,181,.3); background: rgba(79,209,181,.08); }
 .rp-ready.off { color: var(--red); border-color: rgba(255,130,99,.28); }
 .rp-lineup { display: flex; gap: 5px; flex-wrap: wrap; }
+.rp-lineup-hidden { color: var(--muted-2); font-size: 9px; letter-spacing: .06em; border: 1px dashed rgba(255,255,255,.08); border-radius: 4px; padding: 4px 7px; }
 .rp-unit { display: inline-flex; align-items: center; gap: 3px; color: var(--muted); font-size: 8px; background: rgba(255,255,255,.035); border: 1px solid rgba(255,255,255,.04); border-radius: 4px; padding: 2px 4px; }
 .rp-unit .dino-icon { width: 14px; height: 14px; color: var(--faction, var(--muted)); }
 .room-player.blue .rp-unit .dino-icon { color: var(--teal); }
