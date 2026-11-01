@@ -21,26 +21,6 @@
   };
 
   var SPECIES = {
-    trike: {
-      type: 'trike',
-      name: '三角龙',
-      latin: 'Triceratops',
-      size: 2,
-      role: '重装先锋',
-      tags: ['防御反击', '希腊方阵'],
-      hp: 6,
-      armor: 4,
-      attack: 3,
-      move: 1,
-      skillCd: 2,
-      accent: '#61d4b3',
-      emblem: '角',
-      skillName: '防御反击',
-      skillDesc: '完全防御下一次受到的攻击，并反击攻击者，造成 4 点伤害。',
-      passiveName: '希腊方阵',
-      passiveDesc: '两只或以上同队三角龙在同一直线上相邻且朝向相同，形成方阵；同一只三角龙只计一次。来自所朝正面的攻击伤害减少“方阵数量”，至多减少 5 点。',
-      skillType: 'active'
-    },
     trex: {
       type: 'trex',
       name: '霸王龙',
@@ -143,7 +123,7 @@
     }
   };
 
-  var SPECIES_ORDER = ['trike', 'trex', 'leso', 'stego', 'anky', 'velo'];
+  var SPECIES_ORDER = ['trex', 'leso', 'stego', 'anky', 'velo'];
 
   var HOOK_MAX_STACKS = { small: 2, medium: 3 };
   var HOOK_ESCAPE_RANGE = { small: [0.25, 0.45], medium: [0.45, 0.75] };
@@ -210,14 +190,6 @@
     return best;
   }
 
-  function centerFor(obj) {
-    var cells = cellsFor(obj);
-    if (!cells.length) return null;
-    var sx = 0, sy = 0;
-    cells.forEach(function (c) { sx += c.x; sy += c.y; });
-    return { x: sx / cells.length, y: sy / cells.length };
-  }
-
   function inBoard(x, y) { return x >= 0 && x < BOARD_SIZE && y >= 0 && y < BOARD_SIZE; }
   function roundHalf(v) { return Math.round(v * 2) / 2; }
   function teamName(team) { return TEAM_INFO[team] ? TEAM_INFO[team].name : team; }
@@ -236,7 +208,7 @@
     this.nextCorpseId = 1;
     this.startupEvents = [];
 
-    this.buildTeam('blue', config.blueTeam || ['trike', 'stego', 'anky']);
+    this.buildTeam('blue', config.blueTeam || ['stego', 'anky', 'leso']);
     this.buildTeam('red', config.redTeam || ['trex', 'leso']);
     this.deployTeams();
 
@@ -281,7 +253,6 @@
         skillReadyRound: 1 + d.skillCd,
         lastHitRound: 0,
         status: {
-          guard: false,
           bleed: [],
           formUntil: 0,
           atkPenalty: 0,
@@ -565,12 +536,10 @@
           kind: 'attrition',
           isAttack: false,
           ignoreArmor: true,
-          canBeGuarded: false,
           countsAsHit: false,
           allowDevour: false,
           creditKill: false,
           noThorns: true,
-          skipPhalanx: true,
           deferVictory: true
         }, events);
       });
@@ -620,63 +589,6 @@
 
   Game.prototype.isFormActive = function (unit) {
     return !!(unit && unit.status.formUntil && this.round <= unit.status.formUntil);
-  };
-
-  Game.prototype.getPhalanxSize = function (unit) {
-    if (!unit || unit.type !== 'trike' || !unit.alive) return 0;
-    var self = this;
-    var own = {};
-    this.getFootprint(unit).forEach(function (c) { own[key(c.x, c.y)] = true; });
-    var best = 0;
-    var axes = [
-      { dx: 1, dy: 0 },
-      { dx: 0, dy: 1 }
-    ];
-    axes.forEach(function (axis) {
-      var count = 1;
-      var seen = {};
-      seen[unit.id] = true;
-      for (var sign = -1; sign <= 1; sign += 2) {
-        var x = unit.x + axis.dx * sign;
-        var y = unit.y + axis.dy * sign;
-        while (inBoard(x, y)) {
-          // 自己身体的第二格不是“另一只三角龙”，跳过但继续沿同一直线检查。
-          if (own[key(x, y)]) {
-            x += axis.dx * sign;
-            y += axis.dy * sign;
-            continue;
-          }
-          var other = self.unitAt(x, y, unit.id);
-          if (!other) break;
-          if (other.team !== unit.team || other.type !== 'trike' || other.facing !== unit.facing || !other.alive) break;
-          // 同一只三角龙的头和尾可能都落在这条线上，按单位去重，只计一次。
-          if (!seen[other.id]) {
-            seen[other.id] = true;
-            count += 1;
-          }
-          x += axis.dx * sign;
-          y += axis.dy * sign;
-        }
-      }
-      if (count > best) best = count;
-    });
-    return best >= 2 ? best : 0;
-  };
-
-
-  Game.prototype.isInFacingArc = function (target, source) {
-    if (!target || !source) return false;
-    var dir = DIRECTIONS[target.facing];
-    if (!dir) return false;
-    var tc = centerFor(target);
-    var sc = centerFor(source);
-    if (!tc || !sc) return false;
-    var vx = sc.x - tc.x;
-    var vy = sc.y - tc.y;
-    var len = Math.sqrt(vx * vx + vy * vy);
-    if (len === 0) return false;
-    var dot = (vx * dir.x + vy * dir.y) / len;
-    return dot >= Math.SQRT1_2 - 1e-9;
   };
 
   Game.prototype.isAdjacent = function (a, b) {
@@ -757,8 +669,6 @@
       result.targets = [hookCheck.target];
     } else if (unit.type === 'stego') {
       if (this.isFormActive(unit)) { result.reason = '反击形态已开启'; return result; }
-    } else if (unit.type === 'trike') {
-      if (unit.status.guard) { result.reason = '防御反击已经处于待发状态'; return result; }
     }
 
     result.ready = true;
@@ -784,13 +694,7 @@
     this.pushLog(events, unit.name + ' 发动技能「' + def.skillName + '」。', 'skill');
     events.push({ type: 'skill', unitId: unit.id, name: def.skillName, x: unit.x, y: unit.y });
 
-    if (unit.type === 'trike') {
-      unit.status.guard = true;
-      unit.skillReadyRound = this.round + def.skillCd + 1;
-      this.consumeAction(unit);
-      this.pushLog(events, unit.name + ' 架起防御姿态，等待下一次攻击。', 'status');
-      events.push({ type: 'status', unitId: unit.id, status: 'guard-on' });
-    } else if (unit.type === 'trex') {
+    if (unit.type === 'trex') {
       unit.turn.moveLeft += 2;
       unit.turn.extraMove += 2;
       unit.turn.skillUsed = true;
@@ -858,9 +762,7 @@
               kind: 'skill',
               isAttack: true,
               ignoreArmor: true,
-              canBeGuarded: false,
-              skipPhalanx: true,
-              noThorns: true,
+                      noThorns: true,
               allowDevour: true,
               creditKill: true
             }, events);
@@ -988,7 +890,6 @@
           kind: 'bleed',
           isAttack: false,
           ignoreArmor: true,
-          canBeGuarded: false,
           countsAsHit: false,
           allowDevour: false,
           creditKill: true,
@@ -1004,36 +905,8 @@
       return { blocked: false, applied: 0, armorDamage: 0, hpDamage: 0, zero: true };
     }
 
-    if (target.status.guard && opts.canBeGuarded !== false) {
-      target.status.guard = false;
-      this.pushLog(events, target.name + ' 的防御姿态完全挡下了这次攻击！', 'guard');
-      events.push({ type: 'guard', unitId: target.id, x: target.x, y: target.y, sourceId: opts.source ? opts.source.id : null });
-      if (opts.source && opts.source.alive) {
-        this.pushLog(events, target.name + ' 发动防御反击，对 ' + opts.source.name + ' 造成 4 点伤害！', 'counter');
-        this._damage(opts.source, 4, {
-          source: target,
-          kind: 'counter',
-          isAttack: true,
-          canBeGuarded: false,
-          allowDevour: false,
-          creditKill: true,
-          skipPhalanx: true
-        }, events);
-      }
-      return { blocked: true, applied: 0, armorDamage: 0, hpDamage: 0 };
-    }
-
     var amount = raw;
     var notes = [];
-    if (opts.isAttack && opts.source && target.type === 'trike' && !opts.skipPhalanx) {
-      var phalanx = this.getPhalanxSize(target);
-      if (phalanx >= 2 && this.isInFacingArc(target, opts.source)) {
-        var reduction = Math.min(5, phalanx);
-        amount = Math.max(0, amount - reduction);
-        notes.push('方阵减伤 ' + reduction);
-        this.pushLog(events, target.name + ' 的希腊方阵削减了 ' + reduction + ' 点伤害。', 'guard');
-      }
-    }
 
     if (target.type === 'anky' && target.armor > 0 && amount > 0 && !opts.ignoreArmor) {
       var reduced = Math.max(1, Math.round(amount * 0.85));
@@ -1092,12 +965,10 @@
         source: target,
         kind: 'thorns',
         isAttack: false,
-        canBeGuarded: false,
         countsAsHit: true,
         creditKill: true,
         allowDevour: false,
         noThorns: true,
-        skipPhalanx: true
       }, events);
     }
 
@@ -1126,7 +997,6 @@
     if (!target.alive) return;
     target.alive = false;
     target.hp = 0;
-    target.status.guard = false;
     target.status.devour = null;
     this.pushLog(events, '☠ ' + target.name + ' 被击败！', 'death');
     events.push({ type: 'death', unitId: target.id, x: target.x, y: target.y, team: target.team });
@@ -1617,7 +1487,6 @@
   Game.prototype.getStatusList = function (unit) {
     var list = [];
     if (!unit || !unit.alive) return list;
-    if (unit.status.guard) list.push({ key: 'guard', label: '防御反击待发', short: '盾' });
     if (unit.status.hook) {
       var hookedTarget = this.getUnit(unit.status.hook.targetId);
       list.push({ key: 'hook', label: '钩挂 · ' + (hookedTarget ? hookedTarget.name : '目标'), short: '钩' });
