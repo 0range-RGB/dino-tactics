@@ -1372,6 +1372,7 @@
         this.pushLog(events, unit.name + ' 退路被阻挡，额外受到 1 点伤害。', 'hook');
         this._damage(unit, 1, { source: target, kind: 'hook', isAttack: false, allowDevour: false }, events);
       }
+      events.push({ type: 'hook_created', sourceId: unit.id, targetId: target.id, failed: true, large: true });
       return { ok: true, events: events, large: true };
     }
     target.status.hookReceived.push({ sourceId: unit.id, createdTurn: this.round });
