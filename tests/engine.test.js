@@ -11,7 +11,7 @@ E.SPECIES.dummy = {
   passiveName: '无', passiveDesc: '', skillType: 'active'
 };
 assert.strictEqual(E.BOARD_SIZE, 10, '测试套件版本不匹配：请确认 engine.js 是 10×10 版本');
-console.log('\n测试套件：10×10 棋盘 · 45 项');
+console.log('\n测试套件：10×10 棋盘 · 46 项');
 
 let passed = 0;
 function test(name, fn) {
@@ -875,6 +875,26 @@ test('抽刀断水对流血目标追加生命伤害', () => {
   assert.ok(g2.attack(s2.id, t2.id).ok);
   assert.strictEqual(t2.armor, 1);
   assert.strictEqual(t2.hp, 5);
+});
+
+test('7–8 个单位默认布阵不会重叠', () => {
+  const lineups = [
+    Array(8).fill('velo'),
+    ['velo', 'velo', 'velo', 'velo', 'velo', 'velo', 'anky']
+  ];
+  lineups.forEach((lineup) => {
+    const g = new E.Game({ blueTeam: lineup, redTeam: lineup, deployOnly: true });
+    ['blue', 'red'].forEach((team) => {
+      const occupied = new Set();
+      g.getTeamUnits(team).forEach((unit) => {
+        g.getFootprint(unit).forEach((cell) => {
+          const key = cell.x + ',' + cell.y;
+          assert.strictEqual(occupied.has(key), false, team + ' 在 ' + key + ' 重叠');
+          occupied.add(key);
+        });
+      });
+    });
+  });
 });
 
 console.log('\n通过 ' + passed + ' 项测试' + (process.exitCode ? '，存在失败' : '。'));
