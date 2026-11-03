@@ -11,7 +11,7 @@ E.SPECIES.dummy = {
   passiveName: '无', passiveDesc: '', skillType: 'active'
 };
 assert.strictEqual(E.BOARD_SIZE, 10, '测试套件版本不匹配：请确认 engine.js 是 10×10 版本');
-console.log('\n测试套件：10×10 棋盘 · 44 项');
+console.log('\n测试套件：10×10 棋盘 · 45 项');
 
 let passed = 0;
 function test(name, fn) {
@@ -843,6 +843,38 @@ test('侧刺对流血目标额外造成 2 点伤害', () => {
   assert.strictEqual(bleeding.hp, 5);
   assert.strictEqual(clean.armor, 1);
   assert.strictEqual(clean.hp, 6);
+});
+
+test('抽刀断水对流血目标追加生命伤害', () => {
+  const g0 = make(['stego'], ['dummy']);
+  const s0 = g0.getUnit('blue-1');
+  const t0 = g0.getUnit('red-2');
+  place(s0, 5, 5, 'N'); place(t0, 6, 5, 'N');
+  g0.activeTeam = 'blue'; s0.turn.done = false;
+  assert.ok(g0.attack(s0.id, t0.id).ok);
+  assert.strictEqual(t0.armor, 1);
+  assert.strictEqual(t0.hp, 6);
+
+  const g1 = make(['stego'], ['dummy']);
+  const s1 = g1.getUnit('blue-1');
+  const t1 = g1.getUnit('red-2');
+  place(s1, 5, 5, 'N'); place(t1, 6, 5, 'N');
+  g1.addBleed(t1, s1, []);
+  g1.activeTeam = 'blue'; s1.turn.done = false;
+  assert.ok(g1.attack(s1.id, t1.id).ok);
+  assert.strictEqual(t1.armor, 1);
+  assert.strictEqual(t1.hp, 5.5);
+
+  const g2 = make(['stego'], ['dummy']);
+  const s2 = g2.getUnit('blue-1');
+  const t2 = g2.getUnit('red-2');
+  place(s2, 5, 5, 'N'); place(t2, 6, 5, 'N');
+  g2.addBleed(t2, s2, []);
+  g2.addBleed(t2, s2, []);
+  g2.activeTeam = 'blue'; s2.turn.done = false;
+  assert.ok(g2.attack(s2.id, t2.id).ok);
+  assert.strictEqual(t2.armor, 1);
+  assert.strictEqual(t2.hp, 5);
 });
 
 console.log('\n通过 ' + passed + ' 项测试' + (process.exitCode ? '，存在失败' : '。'));
