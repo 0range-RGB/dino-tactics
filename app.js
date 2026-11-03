@@ -525,7 +525,7 @@
         '<div class="build-team-head">' +
           '<span class="faction-dot"></span>' +
           '<strong>' + info.name + '</strong>' +
-          '<span class="capacity-line"><span class="cap-track"><span class="cap-fill" style="width:' + Math.min(100, cap / E.TEAM_CAPACITY * 100) + '%"></span></span><span class="cap-text">' + cap + '/6</span></span>' +
+          '<span class="capacity-line"><span class="cap-track"><span class="cap-fill" style="width:' + Math.min(100, cap / E.TEAM_CAPACITY * 100) + '%"></span></span><span class="cap-text">' + cap + '/' + E.TEAM_CAPACITY + '</span></span>' +
         '</div>';
       ORDER.forEach(function (type) {
         var def = SPECIES[type];
@@ -571,7 +571,7 @@
     var blueCap = capacityOf(state.setup.blue);
     var redCap = capacityOf(state.setup.red);
     if (blueCap === 0 || redCap === 0) { toast('双方都至少需要一只恐龙'); return; }
-    if (blueCap > E.TEAM_CAPACITY || redCap > E.TEAM_CAPACITY) { toast('队伍容量超过 6'); return; }
+    if (blueCap > E.TEAM_CAPACITY || redCap > E.TEAM_CAPACITY) { toast('队伍容量超过 ' + E.TEAM_CAPACITY); return; }
     state.deployPreview = null;
     state.deployHover = null;
 
@@ -2143,7 +2143,7 @@
         lineupHtml = '<div class="rp-lineup">' + units + '</div>';
       }
       html += '<div class="room-player ' + team + '">' +
-        '<div class="rp-head"><span class="rp-faction">' + (team === 'blue' ? '❖' : '✦') + '</span><span class="rp-name"><strong>' + escapeHtml(p.name) + '</strong><span>' + (team === 'blue' ? '苍林盟约' : '赤焰部族') + ' · ' + (p.lineupHidden ? '阵容保密' : '容量 ' + p.capacity + '/6') + '</span></span>' +
+        '<div class="rp-head"><span class="rp-faction">' + (team === 'blue' ? '❖' : '✦') + '</span><span class="rp-name"><strong>' + escapeHtml(p.name) + '</strong><span>' + (team === 'blue' ? '苍林盟约' : '赤焰部族') + ' · ' + (p.lineupHidden ? '阵容保密' : '容量 ' + p.capacity + '/' + E.TEAM_CAPACITY) + '</span></span>' +
         '<span class="rp-ready ' + (!p.connected ? 'off' : p.ready ? 'on' : '') + '">' + (!p.connected ? '掉线' : p.ready ? '已准备' : '未准备') + '</span></div>' +
         lineupHtml +
         (p.team === state.online.team ? '<span class="rp-you">YOU</span>' : '') +
@@ -2154,7 +2154,7 @@
     var me = onlinePlayer(state.online.team);
     var other = onlinePlayer(state.online.team === 'blue' ? 'red' : 'blue');
     var cap = capacityOf(state.online.lineupCounts || defaultCountsForTeam(state.online.team || 'blue'));
-    els.onlineCap.textContent = cap + '/6';
+    els.onlineCap.textContent = cap + '/' + E.TEAM_CAPACITY;
     renderOnlineLineup();
     var meReady = !!(me && me.ready);
     if (meReady) {
@@ -2183,7 +2183,7 @@
     var info = TEAM_INFO[team];
     var disabled = !state.online.connected || state.online.status === 'reconnecting' || !state.online.room || state.online.room.phase !== 'lobby';
     var html = '<div class="build-team ' + team + '">';
-    html += '<div class="build-team-head"><span class="faction-dot"></span><strong>' + info.name + '</strong><span class="capacity-line"><span class="cap-track"><span class="cap-fill" style="width:' + Math.min(100, cap / 6 * 100) + '%"></span></span><span class="cap-text">' + cap + '/6</span></span></div>';
+    html += '<div class="build-team-head"><span class="faction-dot"></span><strong>' + info.name + '</strong><span class="capacity-line"><span class="cap-track"><span class="cap-fill" style="width:' + Math.min(100, cap / E.TEAM_CAPACITY * 100) + '%"></span></span><span class="cap-text">' + cap + '/' + E.TEAM_CAPACITY + '</span></span></div>';
     ORDER.forEach(function (type) {
       var def = SPECIES[type];
       var count = counts[type];
@@ -2199,7 +2199,7 @@
     });
     html += '</div>';
     els.onlineLineup.innerHTML = html;
-    els.onlineCap.textContent = cap + '/6';
+    els.onlineCap.textContent = cap + '/' + E.TEAM_CAPACITY;
     els.btnOnlineDefault.disabled = disabled;
     els.btnOnlineRandom.disabled = disabled;
   }
@@ -3012,10 +3012,10 @@
     var html = '';
     if (state.rulesTab === 'basics') {
       html = '<h3>在方格盆地中活到最后</h3>' +
-        '<p>双方各有一支容量为 <b>6</b> 的恐龙军团，在 10 × 10 的方格战场上轮流行动。开局先在各自半场布阵，再进入战斗；消灭对方全部恐龙即可获胜。</p>' +
+        '<p>双方各有一支容量为 <b>' + E.TEAM_CAPACITY + '</b> 的恐龙军团，在 10 × 10 的方格战场上轮流行动。开局先在各自半场布阵，再进入战斗；消灭对方全部恐龙即可获胜。</p>' +
         '<div class="rule-grid">' +
           '<div class="rule-box"><strong>开局布阵</strong><span>开局时双方可在本方半场任意空格放置恐龙并调整朝向，不消耗行动力。双方完成布阵后，蓝方先手进入第 1 回合。</span></div>' +
-          '<div class="rule-box"><strong>队伍容量与占格</strong><span>小型恐龙占 1 格、消耗 1 容量；中型占 2 格 / 2 容量；三角龙与霸王龙为大型，占 4 格 / 4 容量。可重复编入同种恐龙，但每队总容量不能超过 6。</span></div>' +
+          '<div class="rule-box"><strong>队伍容量与占格</strong><span>小型恐龙占 1 格、消耗 1 容量；中型占 2 格 / 2 容量；三角龙与霸王龙为大型，占 4 格 / 4 容量。可重复编入同种恐龙，但每队总容量不能超过 ' + E.TEAM_CAPACITY + '。</span></div>' +
           '<div class="rule-box"><strong>行动流程</strong><span>每只恐龙每回合可移动，然后攻击或发动技能；也可以不移动。攻击或结束行动后该单位本回合结束。</span></div>' +
           '<div class="rule-box"><strong>整体移动</strong><span>恐龙占据的格子视为一个整体，按前后左右整体平移，不拆分；平移不会改变朝向，转向仍用朝向按钮单独操作。虚线框显示移动后的完整占位，点击框内任意格即可整体移动。</span></div>' +
           '<div class="rule-box"><strong>攻击范围</strong><span>自身占格外围一圈的相邻方格。大型 2×2、中型 2 格长条都按整个身体计算攻击范围；移动后可攻击，攻击后不能再移动。</span></div>' +
