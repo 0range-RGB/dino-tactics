@@ -79,6 +79,14 @@ async function waitHealth(ms = 10000) {
   try {
     await waitHealth();
 
+    const probe = client();
+    await probe.open();
+    await probe.type('welcome');
+    probe.send({ type: 'create', name: 'Probe', lineup: Array(8).fill('trike') });
+    const invalid = await probe.type('error');
+    assert.match(invalid.message, /阵容无效/);
+    probe.close();
+
     a = client();
     await a.open();
     await a.type('welcome');
@@ -89,7 +97,7 @@ async function waitHealth(ms = 10000) {
     b = client();
     await b.open();
     await b.type('welcome');
-    b.send({ type: 'join', code: session.code, name: 'Bob', lineup: ['leso', 'stego', 'anky'] });
+    b.send({ type: 'join', code: session.code, name: 'Bob', lineup: Array(8).fill('velo') });
     await b.type('session');
     await b.type('lobby');
     const lobbyA = await a.type('lobby');
