@@ -181,8 +181,10 @@ test('攻击范围按整个占格计算', () => {
   assert.ok(g.getAttackTargets(rex).some(u => u.id === l.id));
 });
 
-test('超出容量的阵容会被拒绝', () => {
-  assert.throws(() => make(['trex', 'trex'], ['leso']), /容量/);
+test('容量 8 可用，超出容量的阵容会被拒绝', () => {
+  assert.strictEqual(E.TEAM_CAPACITY, 8);
+  assert.ok(make(['trex', 'leso', 'stego'], ['leso']));
+  assert.throws(() => make(['trex', 'trex', 'leso'], ['leso']), /容量/);
 });
 
 console.log('\n移动与攻击');
