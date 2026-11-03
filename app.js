@@ -3020,7 +3020,7 @@
           '<div class="rule-box"><strong>整体移动</strong><span>恐龙占据的格子视为一个整体，按前后左右整体平移，不拆分；平移不会改变朝向，转向仍用朝向按钮单独操作。虚线框显示移动后的完整占位，点击框内任意格即可整体移动。</span></div>' +
           '<div class="rule-box"><strong>攻击范围</strong><span>自身占格外围一圈的相邻方格。大型 2×2、中型 2 格长条都按整个身体计算攻击范围；移动后可攻击，攻击后不能再移动。</span></div>' +
           '<div class="rule-box"><strong>伤害结算</strong><span>除流血外，所有伤害先扣除护甲，再扣除生命。护甲不足时溢出伤害进入生命。</span></div>' +
-          '<div class="rule-box"><strong>击杀恢复</strong><span>战胜敌人恢复其最大生命值的 1/4（小数取 0.5）：中型 1.5，霸王龙 3，甲龙 1。</span></div>' +
+          '<div class="rule-box"><strong>击杀恢复</strong><span>战胜敌人恢复其最大生命值的 1/4（小数取 0.5）：中型 1.5，三角龙 3，霸王龙 3，甲龙 1。</span></div>' +
           '<div class="rule-box"><strong>回合结束</strong><span>双方各行动一次为一回合。回合结束时所有存活恐龙恢复 1 点护甲；连续 3 回合未受攻击伤害则恢复 1 点生命。</span></div>' +
           '<div class="rule-box"><strong>技能冷却</strong><span>每只恐龙拥有一个主动技能，冷却按技能标注。游戏开始即进入冷却，冷却结束后可再次发动。</span></div>' +
           '<div class="rule-box"><strong>胜利条件</strong><span>任意一方的恐龙全部被消灭时，另一方立即获胜。双方同时全灭则平局。</span></div>' +
