@@ -87,7 +87,7 @@
       latin: 'Stegosaurus',
       size: 2,
       role: '尾刺守卫',
-      tags: ['尾刃鞭刺', '穿刺'],
+      tags: ['尾刃鞭刺', '穿刺', '抽刀断水'],
       hp: 6,
       armor: 2,
       attack: 3,
@@ -97,8 +97,8 @@
       emblem: '刃',
       skillName: '尾刃鞭刺',
       skillDesc: '开启反击形态，持续 2 回合；攻击力 +1，命中时有 25% 概率造成流血，有 12.5% 概率造成穿刺（双倍伤害）。穿刺后形态结束，本局护甲上限 -1、攻击力 -1，且无法再次穿刺。发动后仍可攻击。',
-      passiveName: '无被动',
-      passiveDesc: '无被动技能。',
+      passiveName: '抽刀断水',
+      passiveDesc: '攻击带有流血的敌人时，额外造成生命伤害：1 层流血 +0.5，2 层流血 +1。该伤害无视护甲。',
       skillType: 'active'
     },
     anky: {
@@ -1007,6 +1007,13 @@
     }
     target.hp = roundHalf(target.hp);
     var total = armorDamage + hpDamage;
+    if (opts.kind === 'attack' && opts.source && opts.source.type === 'stego' && target.hp > 0 && target.status.bleed.length > 0) {
+      var cutWater = target.status.bleed.length >= 2 ? 1 : 0.5;
+      target.hp = roundHalf(target.hp - cutWater);
+      hpDamage = roundHalf(hpDamage + cutWater);
+      total = roundHalf(total + cutWater);
+      notes.push('抽刀断水 +' + cutWater);
+    }
     if (total > 0 && opts.countsAsHit !== false) target.lastHitRound = this.round;
 
     var detail = [];
