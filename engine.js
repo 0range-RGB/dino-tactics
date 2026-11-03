@@ -6,7 +6,7 @@
   'use strict';
 
   var BOARD_SIZE = 10;
-  var TEAM_CAPACITY = 6;
+  var TEAM_CAPACITY = 8;
   var DIRECTIONS = {
     N: { x: 0, y: -1, label: '北', symbol: '↑' },
     E: { x: 1, y: 0, label: '东', symbol: '→' },
@@ -258,7 +258,7 @@
       if (!def) throw new Error('未知恐龙：' + types[i]);
       capacity += def.size;
     }
-    if (capacity > TEAM_CAPACITY) throw new Error('队伍容量超过 6。');
+    if (capacity > TEAM_CAPACITY) throw new Error('队伍容量超过 ' + TEAM_CAPACITY + '。');
 
     for (var j = 0; j < types.length; j++) {
       var d = SPECIES[types[j]];
