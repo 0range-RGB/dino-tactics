@@ -313,14 +313,36 @@
       var half = BOARD_SIZE / 2;
       var row = team === 'blue' ? half + 1 : half - 2;
       var n = list.length;
-      var cols = list.map(function (_, i) {
-        return Math.max(1, Math.min(BOARD_SIZE - 2, Math.round(((i + 1) * BOARD_SIZE) / (n + 1))));
-      });
-      list.forEach(function (unit, i) {
-        unit.x = cols[i];
-        // 大型单位锚点是左上角：红方需再上移 1 格，才能和蓝方形成镜像。
-        unit.y = (team === 'red' && unit.size >= 4) ? row - 1 : row;
+      var span = BOARD_SIZE - 2;
+
+      // 先移出棋盘，避免未放置单位在 0,0 处互相阻挡。
+      list.forEach(function (unit) {
+        unit.x = -10;
+        unit.y = -10;
         unit.facing = team === 'blue' ? 'N' : 'S';
+      });
+
+      list.forEach(function (unit, i) {
+        var preferred = n === 1
+          ? Math.round(BOARD_SIZE / 2) - 1
+          : Math.round(1 + (i * span) / (n - 1));
+        var y = (team === 'red' && unit.size >= 4) ? row - 1 : row;
+        var columns = [];
+        for (var x = 1; x <= BOARD_SIZE - 2; x++) columns.push(x);
+        columns.sort(function (a, b) {
+          return (Math.abs(a - preferred) - Math.abs(b - preferred)) || (a - b);
+        });
+        for (var c = 0; c < columns.length; c++) {
+          var candidate = columns[c];
+          if (self.canPlaceUnit(unit, candidate, y, unit.facing, true)) {
+            unit.x = candidate;
+            unit.y = y;
+            return;
+          }
+        }
+        // 理论上容量 8 内不会走到这里；保留安全回退。
+        unit.x = preferred;
+        unit.y = y;
       });
     });
   };
