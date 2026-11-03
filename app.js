@@ -3030,6 +3030,7 @@
       html = '<h3>异常状态与特殊形态</h3><div class="rule-grid">' +
         '<div class="rule-box"><strong>物莫能陷</strong><span>三角龙架盾，完全格挡下一次攻击或攻击性技能，不受到该次伤害；触发后效果消失。技能冷却 3 回合。</span></div>' +
         '<div class="rule-box"><strong>吾盾之坚</strong><span>以三角龙朝向为前方，来自前方与斜前方的伤害减少 15%，结果按 0.5 取整；来自侧面或背后的伤害不减。</span></div>' +
+        '<div class="rule-box"><strong>抽刀断水</strong><span>剑龙攻击已带流血的敌人时，额外造成生命伤害：1 层流血 +0.5，2 层流血 +1；该伤害无视护甲。</span></div>' +
         '<div class="rule-box"><strong>荆棘背刺</strong><span>勒苏维斯龙被攻击时，根据该次攻击的实际伤害，有 25%–85% 概率对攻击者施加流血：伤害越高概率越高。其主动技能对已带流血的敌人额外造成 2 点伤害。</span></div>' +
         '<div class="rule-box"><strong>流血</strong><span>持续 4 回合。每层在倒计时结束后直接损失 1 点生命（无视护甲），并移除该层；最多叠加 2 层。连续 3 回合未受攻击伤害时，也会失去 1 层。</span></div>' +
         '<div class="rule-box"><strong>反击形态</strong><span>剑龙开启后持续 2 回合：攻击力 +1，命中时 25% 流血、12.5% 穿刺。穿刺造成双倍伤害后形态结束，护甲上限 -1、攻击力 -1，本局无法再次穿刺。</span></div>' +
