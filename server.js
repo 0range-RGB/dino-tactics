@@ -68,7 +68,7 @@ function cleanText(value, max) {
 }
 
 function normalizeLineup(lineup) {
-  if (!Array.isArray(lineup) || lineup.length < 1 || lineup.length > 6) return null;
+  if (!Array.isArray(lineup) || lineup.length < 1 || lineup.length > Engine.TEAM_CAPACITY) return null;
   let capacity = 0;
   const out = [];
   for (const type of lineup) {
@@ -408,7 +408,8 @@ function handleMessage(ws, msg) {
   if (type === 'create') {
     if (room) return sendError(ws, '你已经在一个房间里。');
     const name = cleanName(msg.name);
-    const lineup = normalizeLineup(msg.lineup) || defaultLineup('blue');
+    const lineup = typeof msg.lineup === 'undefined' ? defaultLineup('blue') : normalizeLineup(msg.lineup);
+    if (!lineup) return sendError(ws, '阵容无效：至少 1 只恐龙，总容量不超过 ' + Engine.TEAM_CAPACITY + '。');
     if (rooms.size >= MAX_ROOMS) return sendError(ws, '服务器房间已满，请稍后再试。');
     const code = randomCode();
     const player = {
@@ -447,7 +448,8 @@ function handleMessage(ws, msg) {
     if (target.phase !== 'lobby') return sendError(ws, '该房间已经开始对战，无法加入。');
     if (target.players.red) return sendError(ws, '房间已满。');
     const name = cleanName(msg.name);
-    const lineup = normalizeLineup(msg.lineup) || defaultLineup('red');
+    const lineup = typeof msg.lineup === 'undefined' ? defaultLineup('red') : normalizeLineup(msg.lineup);
+    if (!lineup) return sendError(ws, '阵容无效：至少 1 只恐龙，总容量不超过 ' + Engine.TEAM_CAPACITY + '。');
     const player = {
       token: randomToken(),
       name: name,
@@ -513,7 +515,7 @@ function handleMessage(ws, msg) {
   if (type === 'update-lineup') {
     if (room.phase !== 'lobby') return sendError(ws, '对战已经开始，无法修改阵容。');
     const lineup = normalizeLineup(msg.lineup);
-    if (!lineup) return sendError(ws, '阵容无效：至少 1 只恐龙，总容量不超过 6。');
+    if (!lineup) return sendError(ws, '阵容无效：至少 1 只恐龙，总容量不超过 ' + Engine.TEAM_CAPACITY + '。');
     player.lineup = lineup;
     player.ready = false;
     room.updatedAt = now;
