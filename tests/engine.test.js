@@ -11,7 +11,7 @@ E.SPECIES.dummy = {
   passiveName: '无', passiveDesc: '', skillType: 'active'
 };
 assert.strictEqual(E.BOARD_SIZE, 10, '测试套件版本不匹配：请确认 engine.js 是 10×10 版本');
-console.log('\n测试套件：10×10 棋盘 · 46 项');
+console.log('\n测试套件：10×10 棋盘 · 47 项');
 
 let passed = 0;
 function test(name, fn) {
@@ -895,6 +895,27 @@ test('7–8 个单位默认布阵不会重叠', () => {
       });
     });
   });
+});
+
+test('地狱溪组地图为 10×10 四类地形', () => {
+  assert.strictEqual(E.MAP.name, '地狱溪组');
+  assert.strictEqual(E.MAP.terrain.length, 10);
+  E.MAP.terrain.forEach((row) => {
+    assert.strictEqual(row.length, 10);
+    assert.ok(/^[FSGW]+$/.test(row));
+  });
+  assert.deepStrictEqual(E.MAP.terrain, [
+    'WSSFFFFFFF',
+    'WSGFFFFFFF',
+    'WGFFFFFGFF',
+    'WSGFFFGWGF',
+    'SSGFFFFWWG',
+    'SSGFFFGWWG',
+    'WSSFFFGWFF',
+    'WSFFFFFGFF',
+    'WGGFFFFFFF',
+    'WSGFFFFFFF'
+  ]);
 });
 
 console.log('\n通过 ' + passed + ' 项测试' + (process.exitCode ? '，存在失败' : '。'));
