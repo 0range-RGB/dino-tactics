@@ -686,7 +686,8 @@ const PUBLIC_FILES = new Map([
   ['/index.html', 'index.html'],
   ['/app.js', 'app.js'],
   ['/engine.js', 'engine.js'],
-  ['/styles.css', 'styles.css']
+  ['/styles.css', 'styles.css'],
+  ['/assets/terrain/shallow-water.png', 'assets/terrain/shallow-water.png']
 ]);
 
 const server = http.createServer((req, res) => {
