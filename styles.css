@@ -642,6 +642,7 @@ button:focus-visible, [role="button"]:focus-visible {
   color: rgba(231,182,94,.42); font-size: 6.5px; letter-spacing: .16em; text-transform: uppercase; pointer-events: none;
 }
 .board-top-rail .rail-mid { color: rgba(147,169,159,.28); }
+.board-top-rail .rail-mid.map-name { color: rgba(231,182,94,.82); font-size: 9px; letter-spacing: .3em; font-weight: 600; text-shadow: 0 0 10px rgba(231,182,94,.22); }
 .board-corner { position: absolute; width: 14px; height: 14px; border-color: var(--amber); opacity: .5; pointer-events: none; z-index: 8; }
 .corner-tl { left: 3px; top: 3px; border-left: 1px solid; border-top: 1px solid; }
 .corner-tr { right: 3px; top: 3px; border-right: 1px solid; border-top: 1px solid; }
@@ -674,6 +675,15 @@ button:focus-visible, [role="button"]:focus-visible {
 .cell:nth-child(2n) { background-color: rgba(17, 39, 29, 0.32); }
 .cell.home-red { background-color: rgba(91, 39, 31, 0.13); }
 .cell.home-blue { background-color: rgba(25, 83, 68, 0.15); }
+.cell.terrain-f { background-color: rgba(9, 139, 74, 0.56); }
+.cell.terrain-s { background-color: rgba(233, 231, 174, 0.48); }
+.cell.terrain-g { background-color: rgba(207, 255, 112, 0.42); }
+.cell.terrain-w { background-color: rgba(52, 209, 241, 0.46); }
+.terrain-swatch { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin: 0 2px 0 5px; vertical-align: middle; border: 1px solid rgba(255,255,255,.18); }
+.terrain-swatch.terrain-f { background: #098b4a; }
+.terrain-swatch.terrain-s { background: #e9e7ae; }
+.terrain-swatch.terrain-g { background: #cfff70; }
+.terrain-swatch.terrain-w { background: #34d1f1; }
 .cell.center-row { border-bottom-color: rgba(231,182,94,.12); }
 .cell::before {
   content: ""; position: absolute; inset: 1px; border-radius: 2px; pointer-events: none; opacity: 0; transition: opacity .15s;
