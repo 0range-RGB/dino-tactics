@@ -7,6 +7,22 @@
 
   var BOARD_SIZE = 10;
   var TEAM_CAPACITY = 8;
+  var MAP = {
+    name: '地狱溪组',
+    terrain: [
+      'WSSFFFFFFF',
+      'WSGFFFFFFF',
+      'WGFFFFFGFF',
+      'WSGFFFGWGF',
+      'SSGFFFFWWG',
+      'SSGFFFGWWG',
+      'WSSFFFGWFF',
+      'WSFFFFFGFF',
+      'WGGFFFFFFF',
+      'WSGFFFFFFF'
+    ],
+    legend: { F: '林地', S: '沙地', G: '草地', W: '浅水' }
+  };
   var DIRECTIONS = {
     N: { x: 0, y: -1, label: '北', symbol: '↑' },
     E: { x: 1, y: 0, label: '东', symbol: '→' },
@@ -1655,6 +1671,7 @@
     TEAM_INFO: TEAM_INFO,
     TEAM_CAPACITY: TEAM_CAPACITY,
     BOARD_SIZE: BOARD_SIZE,
+    MAP: MAP,
     DIRECTIONS: DIRECTIONS,
     FACING_ORDER: FACING_ORDER,
     teamName: teamName,
