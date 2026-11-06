@@ -688,7 +688,8 @@ const PUBLIC_FILES = new Map([
   ['/engine.js', 'engine.js'],
   ['/styles.css', 'styles.css'],
   ['/assets/terrain/shallow-water.png', 'assets/terrain/shallow-water.png'],
-  ['/assets/terrain/sand.png', 'assets/terrain/sand.png']
+  ['/assets/terrain/sand.png', 'assets/terrain/sand.png'],
+  ['/assets/terrain/woodland.png', 'assets/terrain/woodland.png']
 ]);
 
 const server = http.createServer((req, res) => {
