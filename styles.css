@@ -676,7 +676,12 @@ button:focus-visible, [role="button"]:focus-visible {
 .cell.home-red { background-color: rgba(91, 39, 31, 0.13); }
 .cell.home-blue { background-color: rgba(25, 83, 68, 0.15); }
 .cell.terrain-f { background-color: rgba(9, 139, 74, 0.56); }
-.cell.terrain-s { background-color: rgba(233, 231, 174, 0.48); }
+.cell.terrain-s {
+  background-color: rgba(233, 231, 174, 0.48);
+  background-image: linear-gradient(rgba(7, 24, 26, 0.08), rgba(7, 24, 26, 0.08)), url('assets/terrain/sand.png');
+  background-size: cover;
+  background-position: center;
+}
 .cell.terrain-g { background-color: rgba(207, 255, 112, 0.42); }
 .cell.terrain-w {
   background-color: rgba(52, 209, 241, 0.46);
