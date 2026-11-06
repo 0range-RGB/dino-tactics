@@ -675,7 +675,12 @@ button:focus-visible, [role="button"]:focus-visible {
 .cell:nth-child(2n) { background-color: rgba(17, 39, 29, 0.32); }
 .cell.home-red { background-color: rgba(91, 39, 31, 0.13); }
 .cell.home-blue { background-color: rgba(25, 83, 68, 0.15); }
-.cell.terrain-f { background-color: rgba(9, 139, 74, 0.56); }
+.cell.terrain-f {
+  background-color: rgba(9, 139, 74, 0.56);
+  background-image: linear-gradient(rgba(7, 24, 26, 0.18), rgba(7, 24, 26, 0.18)), url('assets/terrain/woodland.png');
+  background-size: cover;
+  background-position: center;
+}
 .cell.terrain-s {
   background-color: rgba(233, 231, 174, 0.48);
   background-image: linear-gradient(rgba(7, 24, 26, 0.08), rgba(7, 24, 26, 0.08)), url('assets/terrain/sand.png');
