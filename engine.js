@@ -389,6 +389,45 @@
   };
 
 
+  Game.prototype.getHiddenZones = function () {
+    var treeKeys = {};
+    MAP.trees.forEach(function (cell) { treeKeys[cell[0] + ',' + cell[1]] = true; });
+    var seen = {};
+    var zones = [];
+    MAP.trees.forEach(function (start) {
+      var startKey = start[0] + ',' + start[1];
+      if (seen[startKey]) return;
+      var queue = [{ x: start[0], y: start[1] }];
+      var cells = [];
+      seen[startKey] = true;
+      while (queue.length) {
+        var cur = queue.shift();
+        cells.push({ x: cur.x, y: cur.y });
+        [{ x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 }].forEach(function (dir) {
+          var nx = cur.x + dir.x;
+          var ny = cur.y + dir.y;
+          var key = nx + ',' + ny;
+          if (treeKeys[key] && !seen[key]) {
+            seen[key] = true;
+            queue.push({ x: nx, y: ny });
+          }
+        });
+      }
+      zones.push({ id: zones.length + 1, cells: cells });
+    });
+    return zones;
+  };
+
+  Game.prototype.getHiddenZoneAt = function (x, y) {
+    var zones = this.getHiddenZones();
+    for (var i = 0; i < zones.length; i++) {
+      for (var j = 0; j < zones[i].cells.length; j++) {
+        if (zones[i].cells[j].x === x && zones[i].cells[j].y === y) return zones[i];
+      }
+    }
+    return null;
+  };
+
   Game.prototype.getVisionCells = function (unit) {
     if (!unit || !unit.alive) return [];
     if (unit.size <= 1) return [{ x: unit.x, y: unit.y }];
@@ -1704,6 +1743,11 @@
     if (unit.status.ankyLock) list.push({ key: 'lock', label: '被尾槌压制', short: '晕' });
     if (unit.status.assaultBonus) list.push({ key: 'assault', label: '下次攻击 +1', short: '+1' });
     if (unit.status.eating) list.push({ key: 'eating', label: '进食中 · 第 ' + unit.status.eating.completeRound + ' 回合完成', short: '食' });
+    var hiddenZone = null;
+    this.getFootprint(unit).forEach(function (cell) {
+      if (!hiddenZone) hiddenZone = this.getHiddenZoneAt(cell.x, cell.y);
+    }, this);
+    if (hiddenZone) list.push({ key: 'hidden-zone', label: '隐藏区 #' + hiddenZone.id, short: '隐' });
     if (unit.status.eatBuff > 0 && this.round <= unit.status.eatBuffUntil) {
       list.push({ key: 'eat-buff', label: '进食完毕 ' + unit.status.eatBuff + ' 层 · 行动力 +1 · 剩 ' + Math.max(0, unit.status.eatBuffUntil - this.round) + ' 回合', short: '食' });
     }
