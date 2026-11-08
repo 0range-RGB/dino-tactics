@@ -21,7 +21,20 @@
       'WGGFFFFFFF',
       'WSGFFFFFFF'
     ],
-    legend: { F: '林地', S: '沙地', G: '草地', W: '浅水' }
+    legend: { F: '林地', S: '沙地', G: '草地', W: '浅水' },
+    // 图片中带白色勾/叉的杉树林地格
+    trees: [
+      [3, 0], [4, 0], [5, 0], [8, 0],
+      [3, 1], [4, 1], [5, 1], [6, 1], [8, 1],
+      [3, 2], [4, 2], [5, 2], [8, 2], [9, 2],
+      [3, 3], [4, 3], [5, 3], [9, 3],
+      [3, 4], [4, 4], [5, 4], [6, 4],
+      [3, 5], [4, 5], [5, 5],
+      [3, 6], [4, 6], [5, 6], [8, 6],
+      [2, 7], [3, 7], [4, 7], [5, 7], [9, 7],
+      [3, 8], [4, 8], [5, 8], [6, 8], [8, 8], [9, 8],
+      [3, 9], [4, 9], [5, 9], [6, 9], [8, 9], [9, 9]
+    ]
   };
   var DIRECTIONS = {
     N: { x: 0, y: -1, label: '北', symbol: '↑' },
@@ -255,6 +268,9 @@
     this.buildTeam('blue', config.blueTeam || ['trike', 'leso']);
     this.buildTeam('red', config.redTeam || ['trex', 'leso']);
     this.deployTeams();
+    this.plants = [];
+    this.nextPlantId = 1;
+    this.spawnPlants();
 
     if (config.deployOnly) {
       this.pushLog(this.startupEvents, '双方进入布阵阶段：可在我方半场自由放置恐龙。', 'system');
@@ -1635,6 +1651,80 @@
     return this.activeTeam === 'blue';
   };
 
+  Game.prototype.spawnPlants = function () {
+    var self = this;
+    this.plants = [];
+    var waters = [];
+    var add = function (x, y, kind) {
+      self.plants.push({ id: 'plant-' + (self.nextPlantId++), x: x, y: y, kind: kind, charges: 2 });
+    };
+    for (var y = 0; y < BOARD_SIZE; y++) {
+      for (var x = 0; x < BOARD_SIZE; x++) {
+        if (MAP.terrain[y][x] === 'W') waters.push({ x: x, y: y });
+      }
+    }
+    for (var gy = 0; gy < BOARD_SIZE; gy++) {
+      for (var gx = 0; gx < BOARD_SIZE; gx++) {
+        if (MAP.terrain[gy][gx] !== 'G') continue;
+        var nearWater = waters.some(function (w) { return Math.abs(w.x - gx) + Math.abs(w.y - gy) <= 2; });
+        if (nearWater && this.rng() < 0.5) add(gx, gy, 'grass');
+      }
+    }
+    MAP.trees.forEach(function (cell) {
+      var tx = cell[0], ty = cell[1];
+      if (MAP.terrain[ty][tx] === 'F' && self.rng() < 0.7) add(tx, ty, 'forest');
+    });
+  };
+
+  Game.prototype.getPlantAt = function (x, y) {
+    for (var i = 0; i < this.plants.length; i++) {
+      if (this.plants[i].x === x && this.plants[i].y === y) return this.plants[i];
+    }
+    return null;
+  };
+
+  Game.prototype.getAdjacentPlants = function (unit) {
+    if (!unit || !unit.alive) return [];
+    var self = this;
+    return this.plants.filter(function (plant) {
+      return distance(unit, { x: plant.x, y: plant.y, size: 1 }) === 1;
+    });
+  };
+
+  Game.prototype.canEatPlant = function (unitId, x, y) {
+    var unit = this.getUnit(unitId);
+    if (!unit) return { allowed: false, reason: '找不到该单位。' };
+    if (this.phase !== 'battle') return { allowed: false, reason: '当前不能进食。' };
+    if (!unit.alive) return { allowed: false, reason: '本单位已被击败。' };
+    if (unit.team !== this.activeTeam) return { allowed: false, reason: '当前不是本方行动回合。' };
+    if (unit.status.devour && unit.status.devour.active) return { allowed: false, reason: '正在吞食，无法进食。' };
+    if (unit.turn.done || unit.turn.actionUsed) return { allowed: false, reason: '本单位本回合已结束行动。' };
+    if (unit.hp >= unit.maxHp) return { allowed: false, reason: '生命值已满。' };
+    var plant = this.getPlantAt(x, y);
+    if (!plant) return { allowed: false, reason: '这里没有可食植物。' };
+    if (distance(unit, { x: plant.x, y: plant.y, size: 1 }) !== 1) return { allowed: false, reason: '植物不在相邻格。' };
+    return { allowed: true, plant: plant };
+  };
+
+  Game.prototype.eatPlant = function (unitId, x, y) {
+    var events = [];
+    var check = this.canEatPlant(unitId, x, y);
+    if (!check.allowed) return { ok: false, error: check.reason, events: events };
+    var unit = this.getUnit(unitId);
+    var plant = check.plant;
+    this.consumeAction(unit);
+    unit.hp = roundHalf(Math.min(unit.maxHp, unit.hp + 1));
+    plant.charges -= 1;
+    this.pushLog(events, unit.name + ' 食用可食植物，恢复 1 点生命。', 'heal');
+    events.push({ type: 'plant_eaten', unitId: unit.id, x: plant.x, y: plant.y, charges: plant.charges });
+    if (plant.charges <= 0) {
+      this.plants = this.plants.filter(function (p) { return p !== plant; });
+      this.pushLog(events, '该植物的可食部分已被吃光，本局不再生长。', 'status');
+      events.push({ type: 'plant_removed', x: plant.x, y: plant.y });
+    }
+    return { ok: true, events: events, plant: plant, healed: 1 };
+  };
+
   Game.prototype.snapshot = function () {
     return {
       round: this.round,
@@ -1643,8 +1733,10 @@
       winner: this.winner,
       units: JSON.parse(JSON.stringify(this.units)),
       corpses: JSON.parse(JSON.stringify(this.corpses)),
+      plants: JSON.parse(JSON.stringify(this.plants || [])),
       nextUnitId: this.nextUnitId,
-      nextCorpseId: this.nextCorpseId
+      nextCorpseId: this.nextCorpseId,
+      nextPlantId: this.nextPlantId || 1
     };
   };
 
@@ -1658,8 +1750,10 @@
     g.winner = snapshot.winner || null;
     g.units = JSON.parse(JSON.stringify(snapshot.units));
     g.corpses = JSON.parse(JSON.stringify(snapshot.corpses || []));
+    g.plants = JSON.parse(JSON.stringify(snapshot.plants || []));
     g.nextUnitId = snapshot.nextUnitId || (g.units.length + 1);
     g.nextCorpseId = snapshot.nextCorpseId || (g.corpses.length + 1);
+    g.nextPlantId = snapshot.nextPlantId || (g.plants.length + 1);
     g.startupEvents = [];
     return g;
   };
