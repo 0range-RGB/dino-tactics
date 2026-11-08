@@ -11,7 +11,7 @@ E.SPECIES.dummy = {
   passiveName: '无', passiveDesc: '', skillType: 'active'
 };
 assert.strictEqual(E.BOARD_SIZE, 10, '测试套件版本不匹配：请确认 engine.js 是 10×10 版本');
-console.log('\n测试套件：10×10 棋盘 · 56 项');
+console.log('\n测试套件：10×10 棋盘 · 57 项');
 
 let passed = 0;
 function test(name, fn) {
@@ -33,7 +33,9 @@ function seq(values, fallback) {
   };
 }
 function make(blue, red, rng) {
-  return new E.Game({ blueTeam: blue, redTeam: red, rng: rng || (() => 0.5) });
+  const g = new E.Game({ blueTeam: blue, redTeam: red, rng: rng || (() => 0.5) });
+  g.hiddenEnabled = false;
+  return g;
 }
 function place(unit, x, y, facing) {
   unit.x = x; unit.y = y;
@@ -920,9 +922,12 @@ test('地狱溪组地图为 10×10 四类地形', () => {
 
 test('草地与杉树林地按概率在开局生长植物', () => {
   const g = new E.Game({ blueTeam: ['dummy'], redTeam: ['dummy'], deployOnly: true, rng: () => 0 });
-  assert.strictEqual(g.plants.length, 62);
+  assert.strictEqual(g.plants.length, 58);
+  const occupied = new Set();
+  g.units.forEach((unit) => g.getFootprint(unit).forEach((cell) => occupied.add(cell.x + ',' + cell.y)));
   g.plants.forEach((plant) => {
     assert.strictEqual(plant.charges, 2);
+    assert.strictEqual(occupied.has(plant.x + ',' + plant.y), false);
     const terrain = E.MAP.terrain[plant.y][plant.x];
     assert.ok(terrain === 'G' || E.MAP.trees.some(([x, y]) => x === plant.x && y === plant.y));
   });
@@ -1101,6 +1106,22 @@ test('隐藏只作用于位于隐藏格的单位占格，而不是整只单位',
   const hidden = g.getHiddenCellsForTeam('blue').filter((c) => c.unitId === target.id);
   assert.deepStrictEqual(hidden, [{ unitId: target.id, x: 2, y: 7 }]);
   assert.strictEqual(hidden.some((c) => c.x === 2 && c.y === 8), false);
+});
+
+test('隐藏单位不能被攻击，视觉揭示后可以攻击', () => {
+  const g = new E.Game({ blueTeam: ['leso'], redTeam: ['velo'], deployOnly: true, rng: () => 1 });
+  g.plants = [];
+  const attacker = g.getUnit('blue-1');
+  const target = g.getUnit('red-2');
+  place(attacker, 2, 5, 'N');
+  place(target, 2, 7, 'N');
+  g.phase = 'battle'; g.activeTeam = 'blue';
+  assert.strictEqual(g.getAttackTargets(attacker).some((u) => u.id === target.id), false);
+  assert.strictEqual(g.attack(attacker.id, target.id).ok, false);
+
+  place(attacker, 3, 6, 'N');
+  assert.strictEqual(g.getAttackTargets(attacker).some((u) => u.id === target.id), true);
+  assert.strictEqual(g.attack(attacker.id, target.id).ok, true);
 });
 
 console.log('\n通过 ' + passed + ' 项测试' + (process.exitCode ? '，存在失败' : '。'));
