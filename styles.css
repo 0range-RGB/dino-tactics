@@ -743,7 +743,7 @@ button:focus-visible, [role="button"]:focus-visible {
 .cell.move-range:hover::before { background: rgba(79,209,181,.24); }
 .cell.attack-range:hover::before { background: rgba(255,106,78,.26); }
 
-.corpse-layer, .plant-layer, .token-layer, .move-layer, .effect-layer { position: absolute; inset: 0; pointer-events: none; }
+.corpse-layer, .plant-layer, .token-layer, .fog-layer, .move-layer, .effect-layer { position: absolute; inset: 0; pointer-events: none; }
 .corpse-layer { z-index: 2; }
 .plant-layer { z-index: 3; }
 .plant { position: absolute; width: 10%; height: 10%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; }
@@ -752,6 +752,9 @@ button:focus-visible, [role="button"]:focus-visible {
 .plant-charges i { width: 3px; height: 3px; border-radius: 50%; background: #a8f08b; box-shadow: 0 0 4px rgba(168,240,139,.7); }
 .plant-charges i.spent { background: rgba(168,240,139,.18); box-shadow: none; }
 .token-layer { z-index: 4; }
+.fog-layer { z-index: 5; }
+.fog-cell { position: absolute; width: 10%; height: 10%; background: rgba(4, 12, 9, 0.93); box-shadow: inset 0 0 0 1px rgba(180,210,190,.12), inset 0 0 18px rgba(0,0,0,.7); }
+.fog-cell::after { content: "?"; position: absolute; inset: 0; display: grid; place-items: center; color: rgba(180,210,190,.2); font-size: clamp(8px,1.1vw,14px); font-weight: 700; }
 .move-layer { z-index: 12; }
 .effect-layer { z-index: 20; overflow: hidden; }
 .move-marker {
