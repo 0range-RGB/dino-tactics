@@ -3044,7 +3044,7 @@
       html = '<h3>在方格盆地中活到最后</h3>' +
         '<p>双方各有一支容量为 <b>' + E.TEAM_CAPACITY + '</b> 的恐龙军团，在 10 × 10 的方格战场上轮流行动。开局先在各自半场布阵，再进入战斗；消灭对方全部恐龙即可获胜。</p>' +
         '<div class="rule-grid">' +
-          '<div class="rule-box"><strong>地图 · 地狱溪组</strong><span>深绿色为林地，黄色为沙地，浅绿色为草地，蓝色为浅水。<i class="terrain-swatch terrain-f"></i>林地 <i class="terrain-swatch terrain-s"></i>沙地 <i class="terrain-swatch terrain-g"></i>草地 <i class="terrain-swatch terrain-w"></i>浅水。地形目前用于地图表现，不改变移动与攻击规则。</span></div>' +
+          '<div class="rule-box"><strong>地图 · 地狱溪组</strong><span>深绿色为林地，黄色为沙地，浅绿色为草地，蓝色为浅水。<i class="terrain-swatch terrain-f"></i>林地 <i class="terrain-swatch terrain-s"></i>沙地 <i class="terrain-swatch terrain-g"></i>草地 <i class="terrain-swatch terrain-w"></i>浅水。地形决定可食植物的生长条件，不改变移动与攻击规则。</span></div>' +
           '<div class="rule-box"><strong>可食植物</strong><span>开局时，距离浅水两格以内的草地有 50% 生长可食植物；带杉树的林地有 70% 生长可食植物。每株植物可被食用 2 次，每次恢复 1 点生命并消耗行动；吃光后消失，本局该格不再生长。</span></div>' +
           '<div class="rule-box"><strong>开局布阵</strong><span>开局时双方可在本方半场任意空格放置恐龙并调整朝向，不消耗行动力。双方完成布阵后，蓝方先手进入第 1 回合。</span></div>' +
           '<div class="rule-box"><strong>队伍容量与占格</strong><span>小型恐龙占 1 格、消耗 1 容量；中型占 2 格 / 2 容量；三角龙与霸王龙为大型，占 4 格 / 4 容量。可重复编入同种恐龙，但每队总容量不能超过 ' + E.TEAM_CAPACITY + '。</span></div>' +
