@@ -329,6 +329,7 @@
           guard: false,
           eatBuff: 0,
           eatBuffUntil: 0,
+          eating: null,
           hook: null,
           hookReceived: [],
           hookEscapeRound: 0
@@ -518,6 +519,10 @@
     this.activeTeam = team;
 
     if (team === 'blue') this.expireRoundStatuses(events);
+
+    this.getTeamUnits(team).forEach(function (unit) {
+      self.completeEating(unit, events);
+    });
 
     this.getTeamUnits(team).forEach(function (unit) {
       if (!unit.alive) return;
@@ -1046,6 +1051,11 @@
       return { blocked: true, applied: 0, armorDamage: 0, hpDamage: 0 };
     }
 
+    if (target.status.eating) {
+      amount = roundHalf(amount * 1.2);
+      notes.push('进食受创 +20%');
+    }
+
     if (target.type === 'trike' && opts.isAttack && opts.source && opts.source.alive && this.isInFacingArc(target, opts.source)) {
       var guarded = roundHalf(amount * 0.85);
       if (guarded < amount) notes.push('吾盾之坚 ' + (amount - guarded));
@@ -1109,6 +1119,12 @@
       sourceId: opts.source ? opts.source.id : null,
       note: notes.join('，')
     });
+
+    if (target.status.eating && opts.isAttack && target.hp > 0) {
+      target.status.eating = null;
+      this.pushLog(events, target.name + ' 的进食被打断，未获得「进食完毕」。', 'status');
+      events.push({ type: 'eat_interrupted', unitId: target.id, x: target.x, y: target.y, reason: 'attack' });
+    }
 
     if (target.type === 'anky' && target.hp > 0 && armorDamage > 0 && opts.source && opts.source.alive && !opts.noThorns) {
       this.pushLog(events, target.name + ' 的甲壳反伤，对 ' + opts.source.name + ' 造成 1 点伤害。', 'counter');
@@ -1660,6 +1676,7 @@
     if (this.isFormActive(unit)) list.push({ key: 'form', label: '反击形态', short: '刃' });
     if (unit.status.ankyLock) list.push({ key: 'lock', label: '被尾槌压制', short: '晕' });
     if (unit.status.assaultBonus) list.push({ key: 'assault', label: '下次攻击 +1', short: '+1' });
+    if (unit.status.eating) list.push({ key: 'eating', label: '进食中 · 第 ' + unit.status.eating.completeRound + ' 回合完成', short: '食' });
     if (unit.status.eatBuff > 0 && this.round <= unit.status.eatBuffUntil) {
       list.push({ key: 'eat-buff', label: '进食完毕 ' + unit.status.eatBuff + ' 层 · 行动力 +1 · 剩 ' + Math.max(0, unit.status.eatBuffUntil - this.round) + ' 回合', short: '食' });
     }
@@ -1706,13 +1723,31 @@
     }
     return null;
   };
-
-  Game.prototype.getAdjacentPlants = function (unit) {
+  Game.prototype.getFacingCells = function (unit) {
     if (!unit || !unit.alive) return [];
-    var self = this;
-    return this.plants.filter(function (plant) {
-      return distance(unit, { x: plant.x, y: plant.y, size: 1 }) === 1;
+    var dir = DIRECTIONS[unit.facing];
+    if (!dir) return [];
+    var own = {};
+    this.getFootprint(unit).forEach(function (cell) { own[cell.x + ',' + cell.y] = true; });
+    var seen = {};
+    var cells = [];
+    this.getFootprint(unit).forEach(function (cell) {
+      var nx = cell.x + dir.x;
+      var ny = cell.y + dir.y;
+      var key = nx + ',' + ny;
+      if (own[key] || seen[key] || !inBoard(nx, ny)) return;
+      seen[key] = true;
+      cells.push({ x: nx, y: ny });
     });
+    return cells;
+  };
+
+  Game.prototype.getFacingPlants = function (unit) {
+    if (!unit || !unit.alive) return [];
+    var cells = this.getFacingCells(unit);
+    var keys = {};
+    cells.forEach(function (cell) { keys[cell.x + ',' + cell.y] = true; });
+    return this.plants.filter(function (plant) { return keys[plant.x + ',' + plant.y]; });
   };
 
   Game.prototype.canEatPlant = function (unitId, x, y) {
@@ -1721,13 +1756,16 @@
     if (this.phase !== 'battle') return { allowed: false, reason: '当前不能进食。' };
     if (!unit.alive) return { allowed: false, reason: '本单位已被击败。' };
     if (SPECIES[unit.type].diet !== 'herbivore') return { allowed: false, reason: '肉食恐龙不能食用植物。' };
+    if (unit.status.eating) return { allowed: false, reason: '正在进食中。' };
     if (unit.team !== this.activeTeam) return { allowed: false, reason: '当前不是本方行动回合。' };
     if (unit.status.devour && unit.status.devour.active) return { allowed: false, reason: '正在吞食，无法进食。' };
     if (unit.turn.done || unit.turn.actionUsed) return { allowed: false, reason: '本单位本回合已结束行动。' };
-    if (unit.hp >= unit.maxHp) return { allowed: false, reason: '生命值已满。' };
     var plant = this.getPlantAt(x, y);
     if (!plant) return { allowed: false, reason: '这里没有可食植物。' };
-    if (distance(unit, { x: plant.x, y: plant.y, size: 1 }) !== 1) return { allowed: false, reason: '植物不在相邻格。' };
+    var facing = this.getFacingCells(unit);
+    if (!facing.some(function (cell) { return cell.x === x && cell.y === y; })) {
+      return { allowed: false, reason: '植物不在朝向一格内。' };
+    }
     return { allowed: true, plant: plant };
   };
 
@@ -1738,20 +1776,38 @@
     var unit = this.getUnit(unitId);
     var plant = check.plant;
     this.consumeAction(unit);
-    unit.hp = roundHalf(Math.min(unit.maxHp, unit.hp + 1));
+    unit.status.eating = { plantId: plant.id, x: plant.x, y: plant.y, completeRound: this.round + 1 };
+    this.pushLog(events, unit.name + ' 开始进食，本回合无法行动；若受到攻击会被打断。', 'status');
+    events.push({ type: 'eat_started', unitId: unit.id, x: plant.x, y: plant.y, completeRound: unit.status.eating.completeRound });
+    events.push({ type: 'status', unitId: unit.id, status: 'eating' });
+    return { ok: true, events: events, plant: plant, started: true };
+  };
+
+  Game.prototype.completeEating = function (unit, events) {
+    if (!unit || !unit.alive || !unit.status.eating) return false;
+    var eating = unit.status.eating;
+    if (this.round < eating.completeRound) return false;
+    unit.status.eating = null;
+    var plant = this.getPlantAt(eating.x, eating.y);
+    if (!plant) {
+      this.pushLog(events, unit.name + ' 的进食被打断，没有获得「进食完毕」。', 'status');
+      events.push({ type: 'eat_interrupted', unitId: unit.id, x: eating.x, y: eating.y, reason: 'plant_missing' });
+      return false;
+    }
+    var healed = this.healUnit(unit, 1, events, '进食');
     var nextStacks = Math.min(2, (unit.status.eatBuff || 0) + 1);
     unit.status.eatBuff = nextStacks;
     unit.status.eatBuffUntil = this.round + (nextStacks >= 2 ? 4 : 3);
     plant.charges -= 1;
-    this.pushLog(events, unit.name + ' 食用可食植物，恢复 1 点生命，获得「进食完毕」' + nextStacks + ' 层。', 'heal');
-    events.push({ type: 'plant_eaten', unitId: unit.id, x: plant.x, y: plant.y, charges: plant.charges });
+    this.pushLog(events, unit.name + ' 进食完毕，恢复 ' + healed + ' 点生命，获得「进食完毕」' + nextStacks + ' 层。', 'heal');
+    events.push({ type: 'eat_complete', unitId: unit.id, x: plant.x, y: plant.y, charges: plant.charges, stacks: nextStacks });
     events.push({ type: 'status', unitId: unit.id, status: 'eat-buff', stacks: nextStacks });
     if (plant.charges <= 0) {
       this.plants = this.plants.filter(function (p) { return p !== plant; });
       this.pushLog(events, '该植物的可食部分已被吃光，本局不再生长。', 'status');
       events.push({ type: 'plant_removed', x: plant.x, y: plant.y });
     }
-    return { ok: true, events: events, plant: plant, healed: 1 };
+    return true;
   };
 
   Game.prototype.snapshot = function () {
