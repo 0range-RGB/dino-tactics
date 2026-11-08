@@ -2947,6 +2947,10 @@
       for (var k = 0; k < allies.length; k++) {
         if (allies[k].id !== unit.id && E.distance(cell, allies[k]) <= 1) score += 2;
       }
+      if (SPECIES[unit.type].diet === 'herbivore' && unit.hp < unit.maxHp) {
+        var sim = { x: cell.x, y: cell.y, facing: unit.facing, size: unit.size, alive: true };
+        if (g.getFacingPlants(sim).length) score += 8;
+      }
       score += Math.random() * 1.8;
       if (cell.x === unit.x && cell.y === unit.y) score += 2;
       if (score > bestScore) { bestScore = score; best = cell; }
