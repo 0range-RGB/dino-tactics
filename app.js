@@ -166,7 +166,7 @@
     [
       'battleApp', 'startScreen', 'roundNum', 'turnPill', 'turnBanner', 'turnTitle', 'turnSub',
       'blueTeamPanel', 'redTeamPanel', 'blueKills', 'redKills', 'board', 'grid', 'tokenLayer',
-      'corpseLayer', 'effectLayer', 'moveLayer', 'boardHint', 'detailPanel', 'actionPanel', 'logList', 'logMeta',
+      'corpseLayer', 'plantLayer', 'effectLayer', 'moveLayer', 'boardHint', 'detailPanel', 'actionPanel', 'logList', 'logMeta',
       'boardViewport', 'btnZoomBoard',
       'btnEndTurnTop', 'btnSound', 'btnRules', 'btnRestart', 'btnStart', 'btnStartBottom', 'btnRulesStart',
       'btnRandom', 'btnDefault', 'buildTeams', 'startWarning', 'modeSelect', 'rulesModal',
@@ -865,6 +865,7 @@
     }
 
     renderCorpses();
+    renderPlants();
     renderTokens();
     if (deploying) renderDeployOverlay(selected, deployCells);
     else renderMoveOverlay(selected, reachable);
@@ -984,6 +985,19 @@
       html += '<span class="corpse" style="left:' + ((corpse.x + 0.5) / BOARD_SIZE * 100) + '%;top:' + ((corpse.y + 0.5) / BOARD_SIZE * 100) + '%;" title="' + corpse.name + '的尸体"><span>☠</span></span>';
     });
     els.corpseLayer.innerHTML = html;
+  }
+
+  function renderPlants() {
+    if (!els.plantLayer) return;
+    if (!state.game || !state.game.plants) { els.plantLayer.innerHTML = ''; return; }
+    var html = '';
+    state.game.plants.forEach(function (plant) {
+      html += '<span class="plant" style="left:' + (plant.x / BOARD_SIZE * 100) + '%;top:' + (plant.y / BOARD_SIZE * 100) + '%;" title="可食植物 · 剩余 ' + plant.charges + ' 次">' +
+        '<span class="plant-leaf">' + (plant.kind === 'forest' ? '🌲' : '🌿') + '</span>' +
+        '<span class="plant-charges"><i></i><i class="' + (plant.charges < 2 ? 'spent' : '') + '"></i></span>' +
+      '</span>';
+    });
+    els.plantLayer.innerHTML = html;
   }
 
   function renderTokens() {
@@ -1178,6 +1192,7 @@
     var targets = g.getAttackTargets(selected);
     var moveLeft = g.getMoveLeft(selected);
     var corpseResume = canResumeDevour(selected);
+    var ediblePlants = selected.hp < selected.maxHp ? g.getAdjacentPlants(selected) : [];
     var done = selected.turn.done;
     var controlsLocked = state.busy || (state.mode === 'online' && !state.online.connected);
     var hookStacks = g.getHookStacks(selected);
@@ -1213,6 +1228,9 @@
         (escapeCheck.allowed ? '<button type="button" class="action-btn" data-action="escape-hook" ' + (controlsLocked ? 'disabled' : '') + '><span class="action-icon">解</span><span class="action-copy"><b>' + (hookStacks.length > 1 ? '摆脱受钩挂（最早层）' : '摆脱受钩挂') + '</b><small>成功率 ' + Math.round(g.getHookEscapeChance(selected) * 100) + '%，成功失去一层</small></span></button>' : '') +
         (releaseCheck.allowed ? '<button type="button" class="action-btn" data-action="release-hook" ' + (controlsLocked ? 'disabled' : '') + '><span class="action-icon">收</span><span class="action-copy"><b>解除钩挂</b><small>结束自身钩挂，消耗本回合行动</small></span></button>' : '') +
         (corpseResume ? '<button type="button" class="action-btn devour" data-action="resume-devour"><span class="action-icon">食</span><span class="action-copy"><b>继续吞食</b><small>消耗本回合，恢复 1 点生命</small></span></button>' : '') +
+        ediblePlants.map(function (plant) {
+          return '<button type="button" class="action-btn" data-action="eat-plant" data-x="' + plant.x + '" data-y="' + plant.y + '" ' + (controlsLocked ? 'disabled' : '') + '><span class="action-icon">' + (plant.kind === 'forest' ? '🌲' : '🌿') + '</span><span class="action-copy"><b>食用植物</b><small>恢复 1 点生命 · 剩余 ' + plant.charges + ' 次</small></span><span class="action-key">进食</span></button>';
+        }).join('') +
         (targets.length ? '<div class="action-btn attack" style="cursor:default"><span class="action-icon">⚔</span><span class="action-copy"><b>攻击 · ' + targets.length + ' 个目标</b><small>点击棋盘上红色高亮的敌人</small></span><span class="action-key">相邻</span></div>' : '') +
       '</div>' +
       '<div class="facing-control"><span class="facing-label">朝向</span><span class="facing-pad">' + facingButtons + '</span><span class="facing-current">' + DIRECTIONS[selected.facing].label + ' · 侧刺判定</span></div>' +
@@ -1354,6 +1372,7 @@
     switch (action.type) {
       case 'move': return function () { return g.moveUnit(action.unitId, action.x, action.y); };
       case 'attack': return function () { return g.attack(action.unitId, action.targetId); };
+      case 'eatPlant': return function () { return g.eatPlant(action.unitId, action.x, action.y); };
       case 'skill': return function () { return g.useSkill(action.unitId, action.targetId); };
       case 'rotate': return function () { return g.rotateUnit(action.unitId, action.facing); };
       case 'endUnit': return function () { return g.endUnit(action.unitId); };
@@ -2239,6 +2258,12 @@
         ringAt(ev.x, ev.y, 'heal');
         flashToken(ev.unitId, 'healed');
         Sound.heal();
+      } else if (ev.type === 'plant_eaten') {
+        floatAt(ev.x, ev.y, '+1', 'heal');
+        ringAt(ev.x, ev.y, 'heal');
+        flashToken(ev.unitId, 'healed');
+        Sound.heal();
+        toast('食用植物，恢复 1 点生命');
       } else if (ev.type === 'guard') {
         floatAt(ev.x, ev.y, '格挡', 'guard');
         ringAt(ev.x, ev.y, 'guard');
@@ -2601,6 +2626,8 @@
         submitAction({ type: 'escapeHook', unitId: unit.id });
       } else if (action === 'resume-devour') {
         submitAction({ type: 'resumeDevour', unitId: unit.id });
+      } else if (action === 'eat-plant') {
+        submitAction({ type: 'eatPlant', unitId: unit.id, x: Number(btn.dataset.x), y: Number(btn.dataset.y) });
       } else if (action === 'end-unit') {
         submitAction({ type: 'endUnit', unitId: unit.id });
       }
@@ -3018,6 +3045,7 @@
         '<p>双方各有一支容量为 <b>' + E.TEAM_CAPACITY + '</b> 的恐龙军团，在 10 × 10 的方格战场上轮流行动。开局先在各自半场布阵，再进入战斗；消灭对方全部恐龙即可获胜。</p>' +
         '<div class="rule-grid">' +
           '<div class="rule-box"><strong>地图 · 地狱溪组</strong><span>深绿色为林地，黄色为沙地，浅绿色为草地，蓝色为浅水。<i class="terrain-swatch terrain-f"></i>林地 <i class="terrain-swatch terrain-s"></i>沙地 <i class="terrain-swatch terrain-g"></i>草地 <i class="terrain-swatch terrain-w"></i>浅水。地形目前用于地图表现，不改变移动与攻击规则。</span></div>' +
+          '<div class="rule-box"><strong>可食植物</strong><span>开局时，距离浅水两格以内的草地有 50% 生长可食植物；带杉树的林地有 70% 生长可食植物。每株植物可被食用 2 次，每次恢复 1 点生命并消耗行动；吃光后消失，本局该格不再生长。</span></div>' +
           '<div class="rule-box"><strong>开局布阵</strong><span>开局时双方可在本方半场任意空格放置恐龙并调整朝向，不消耗行动力。双方完成布阵后，蓝方先手进入第 1 回合。</span></div>' +
           '<div class="rule-box"><strong>队伍容量与占格</strong><span>小型恐龙占 1 格、消耗 1 容量；中型占 2 格 / 2 容量；三角龙与霸王龙为大型，占 4 格 / 4 容量。可重复编入同种恐龙，但每队总容量不能超过 ' + E.TEAM_CAPACITY + '。</span></div>' +
           '<div class="rule-box"><strong>行动流程</strong><span>每只恐龙每回合可移动，然后攻击或发动技能；也可以不移动。攻击或结束行动后该单位本回合结束。</span></div>' +
