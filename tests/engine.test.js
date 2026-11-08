@@ -11,7 +11,7 @@ E.SPECIES.dummy = {
   passiveName: '无', passiveDesc: '', skillType: 'active'
 };
 assert.strictEqual(E.BOARD_SIZE, 10, '测试套件版本不匹配：请确认 engine.js 是 10×10 版本');
-console.log('\n测试套件：10×10 棋盘 · 51 项');
+console.log('\n测试套件：10×10 棋盘 · 52 项');
 
 let passed = 0;
 function test(name, fn) {
@@ -930,62 +930,81 @@ test('草地与杉树林地按概率在开局生长植物', () => {
   assert.strictEqual(empty.plants.length, 0);
 });
 
-test('可食植物最多食用两次，吃完后消失', () => {
+test('可食植物必须位于朝向一格，并需要一回合完成', () => {
   const g = make(['dummy'], ['leso']);
-  g.plants = [{ id: 'plant-test', x: 5, y: 5, kind: 'grass', charges: 2 }];
+  g.plants = [{ id: 'plant-front', x: 4, y: 4, kind: 'grass', charges: 2 }];
   const u = g.getUnit('blue-1');
   place(u, 4, 5, 'N');
   u.hp = 4;
-  g.activeTeam = 'blue';
-  u.turn.done = false; u.turn.actionUsed = false;
-  const first = g.eatPlant(u.id, 5, 5);
-  assert.ok(first.ok, first.error);
+  g.activeTeam = 'blue'; u.turn.done = false; u.turn.actionUsed = false;
+  assert.strictEqual(g.canEatPlant(u.id, 4, 4).allowed, true);
+  const started = g.eatPlant(u.id, 4, 4);
+  assert.ok(started.ok, started.error);
+  assert.strictEqual(u.status.eating.completeRound, 2);
+  assert.strictEqual(u.hp, 4);
+  assert.strictEqual(g.getPlantAt(4, 4).charges, 2);
+  assert.strictEqual(u.status.eatBuff, 0);
+
+  g.round = 2;
+  g.startTeamTurn('blue', []);
+  assert.strictEqual(u.status.eating, null);
   assert.strictEqual(u.hp, 5);
-  assert.strictEqual(g.getPlantAt(5, 5).charges, 1);
+  assert.strictEqual(g.getPlantAt(4, 4).charges, 1);
+  assert.strictEqual(u.status.eatBuff, 1);
+  assert.strictEqual(g.getMoveLeft(u), u.move + 1);
+
+  u.hp = 4; u.turn.done = false; u.turn.actionUsed = false;
+  assert.strictEqual(g.canEatPlant(u.id, 4, 4).allowed, true);
+  assert.ok(g.eatPlant(u.id, 4, 4).ok);
+  g.round = 3;
+  g.startTeamTurn('blue', []);
+  assert.strictEqual(u.hp, 5);
+  assert.strictEqual(g.getPlantAt(4, 4), null);
+  assert.strictEqual(u.status.eatBuff, 2);
   u.turn.done = false; u.turn.actionUsed = false;
-  const second = g.eatPlant(u.id, 5, 5);
-  assert.ok(second.ok, second.error);
-  assert.strictEqual(u.hp, 6);
-  assert.strictEqual(g.getPlantAt(5, 5), null);
-  assert.strictEqual(g.plants.length, 0);
-  u.turn.done = false; u.turn.actionUsed = false;
-  assert.strictEqual(g.eatPlant(u.id, 5, 5).ok, false);
+  assert.strictEqual(g.eatPlant(u.id, 4, 4).ok, false);
+
+  const g2 = make(['dummy'], ['leso']);
+  g2.plants = [{ id: 'plant-side', x: 5, y: 5, kind: 'grass', charges: 2 }];
+  const u2 = g2.getUnit('blue-1');
+  place(u2, 4, 5, 'N');
+  g2.activeTeam = 'blue'; u2.turn.done = false;
+  assert.strictEqual(g2.canEatPlant(u2.id, 5, 5).allowed, false);
 });
 
 test('进食完毕叠加、行动力加成与结束恢复', () => {
   const g = make(['dummy'], ['leso']);
-  g.plants = [{ id: 'buff-plant', x: 5, y: 5, kind: 'grass', charges: 2 }];
+  g.plants = [{ id: 'buff-plant', x: 4, y: 4, kind: 'grass', charges: 2 }];
   const u = g.getUnit('blue-1');
   place(u, 4, 5, 'N');
   u.hp = 2;
-  g.activeTeam = 'blue';
-  u.turn.done = false; u.turn.actionUsed = false;
-  assert.ok(g.eatPlant(u.id, 5, 5).ok);
+  g.activeTeam = 'blue'; u.turn.done = false; u.turn.actionUsed = false;
+  assert.ok(g.eatPlant(u.id, 4, 4).ok);
+  g.round = 2; g.completeEating(u, []);
   assert.strictEqual(u.status.eatBuff, 1);
-  assert.strictEqual(u.status.eatBuffUntil, 4);
-  g.startTeamTurn('blue', []);
-  assert.strictEqual(g.getMoveLeft(u), u.move + 1);
-  u.turn.done = false; u.turn.actionUsed = false;
-  assert.ok(g.eatPlant(u.id, 5, 5).ok);
-  assert.strictEqual(u.status.eatBuff, 2);
   assert.strictEqual(u.status.eatBuffUntil, 5);
-  assert.strictEqual(u.hp, 4);
-  g.round = 5;
-  g.expireRoundStatuses([]);
+  assert.strictEqual(u.hp, 3);
+  g.round = 5; g.expireRoundStatuses([]);
   assert.strictEqual(u.status.eatBuff, 0);
-  assert.strictEqual(u.hp, 6);
+  assert.strictEqual(u.hp, 3);
 
   const g2 = make(['dummy'], ['leso']);
-  g2.plants = [{ id: 'buff-plant-2', x: 5, y: 5, kind: 'grass', charges: 2 }];
+  g2.plants = [{ id: 'buff-plant-2', x: 4, y: 4, kind: 'grass', charges: 2 }];
   const u2 = g2.getUnit('blue-1');
   place(u2, 4, 5, 'N');
-  u2.hp = 2;
-  g2.activeTeam = 'blue'; u2.turn.done = false; u2.turn.actionUsed = false;
-  assert.ok(g2.eatPlant(u2.id, 5, 5).ok);
-  g2.round = 4;
-  g2.expireRoundStatuses([]);
-  assert.strictEqual(u2.status.eatBuff, 0);
+  u2.hp = 1;
+  g2.activeTeam = 'blue'; u2.turn.done = false;
+  assert.ok(g2.eatPlant(u2.id, 4, 4).ok);
+  g2.round = 2; g2.completeEating(u2, []);
+  u2.turn.done = false; u2.turn.actionUsed = false;
+  assert.ok(g2.eatPlant(u2.id, 4, 4).ok);
+  g2.round = 3; g2.completeEating(u2, []);
+  assert.strictEqual(u2.status.eatBuff, 2);
+  assert.strictEqual(u2.status.eatBuffUntil, 7);
   assert.strictEqual(u2.hp, 3);
+  g2.round = 7; g2.expireRoundStatuses([]);
+  assert.strictEqual(u2.status.eatBuff, 0);
+  assert.strictEqual(u2.hp, 5);
 });
 
 test('只有植食性恐龙可以食用植物', () => {
@@ -1002,6 +1021,24 @@ test('只有植食性恐龙可以食用植物', () => {
   g.activeTeam = 'blue'; v.turn.done = false;
   assert.strictEqual(g.canEatPlant(v.id, 6, 5).allowed, false);
   assert.strictEqual(g.eatPlant(v.id, 6, 5).ok, false);
+});
+
+test('进食期间多受 20% 伤害，受攻击会打断', () => {
+  const g = make(['dummy'], ['leso']);
+  g.plants = [{ id: 'interrupt-plant', x: 4, y: 4, kind: 'grass', charges: 2 }];
+  const u = g.getUnit('blue-1');
+  const attacker = g.getUnit('red-2');
+  place(u, 4, 5, 'N');
+  u.hp = 6; u.armor = 4;
+  g.activeTeam = 'blue'; u.turn.done = false; u.turn.actionUsed = false;
+  assert.ok(g.eatPlant(u.id, 4, 4).ok);
+  assert.ok(u.status.eating);
+  const events = [];
+  g._damage(u, 5, { source: attacker, kind: 'attack', isAttack: true }, events);
+  assert.strictEqual(u.hp, 4);
+  assert.strictEqual(u.status.eating, null);
+  assert.strictEqual(u.status.eatBuff, 0);
+  assert.strictEqual(g.getPlantAt(4, 4).charges, 2);
 });
 
 console.log('\n通过 ' + passed + ' 项测试' + (process.exitCode ? '，存在失败' : '。'));
