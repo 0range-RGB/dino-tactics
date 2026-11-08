@@ -920,7 +920,7 @@ test('地狱溪组地图为 10×10 四类地形', () => {
 
 test('草地与杉树林地按概率在开局生长植物', () => {
   const g = new E.Game({ blueTeam: ['dummy'], redTeam: ['dummy'], deployOnly: true, rng: () => 0 });
-  assert.strictEqual(g.plants.length, 60);
+  assert.strictEqual(g.plants.length, 62);
   g.plants.forEach((plant) => {
     assert.strictEqual(plant.charges, 2);
     const terrain = E.MAP.terrain[plant.y][plant.x];
