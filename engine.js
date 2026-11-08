@@ -52,6 +52,7 @@
   var SPECIES = {
     trike: {
       type: 'trike',
+      diet: 'herbivore',
       name: '三角龙',
       latin: 'Triceratops',
       size: 4,
@@ -72,6 +73,7 @@
     },
     trex: {
       type: 'trex',
+      diet: 'carnivore',
       name: '霸王龙',
       latin: 'Tyrannosaurus',
       size: 4,
@@ -92,6 +94,7 @@
     },
     leso: {
       type: 'leso',
+      diet: 'herbivore',
       name: '勒苏维斯龙',
       latin: 'Lesothosaurus',
       size: 2,
@@ -112,6 +115,7 @@
     },
     stego: {
       type: 'stego',
+      diet: 'herbivore',
       name: '剑龙',
       latin: 'Stegosaurus',
       size: 2,
@@ -132,6 +136,7 @@
     },
     anky: {
       type: 'anky',
+      diet: 'herbivore',
       name: '甲龙',
       latin: 'Ankylosaurus',
       size: 2,
@@ -152,6 +157,7 @@
     },
     velo: {
       type: 'velo',
+      diet: 'carnivore',
       name: '伶盗龙',
       latin: 'Velociraptor',
       size: 1,
@@ -1714,6 +1720,7 @@
     if (!unit) return { allowed: false, reason: '找不到该单位。' };
     if (this.phase !== 'battle') return { allowed: false, reason: '当前不能进食。' };
     if (!unit.alive) return { allowed: false, reason: '本单位已被击败。' };
+    if (SPECIES[unit.type].diet !== 'herbivore') return { allowed: false, reason: '肉食恐龙不能食用植物。' };
     if (unit.team !== this.activeTeam) return { allowed: false, reason: '当前不是本方行动回合。' };
     if (unit.status.devour && unit.status.devour.active) return { allowed: false, reason: '正在吞食，无法进食。' };
     if (unit.turn.done || unit.turn.actionUsed) return { allowed: false, reason: '本单位本回合已结束行动。' };
