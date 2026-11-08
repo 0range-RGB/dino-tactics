@@ -321,6 +321,8 @@
           devour: null,
           assaultBonus: 0,
           guard: false,
+          eatBuff: 0,
+          eatBuffUntil: 0,
           hook: null,
           hookReceived: [],
           hookEscapeRound: 0
@@ -513,8 +515,9 @@
 
     this.getTeamUnits(team).forEach(function (unit) {
       if (!unit.alive) return;
+      var eatMoveBonus = (unit.status.eatBuff > 0 && self.round <= unit.status.eatBuffUntil) ? 1 : 0;
       unit.turn = {
-        moveLeft: unit.move,
+        moveLeft: unit.move + eatMoveBonus,
         extraMove: 0,
         moved: false,
         actionUsed: false,
@@ -549,6 +552,18 @@
         unit.status.ankyLock = null;
         self.pushLog(events, unit.name + ' 摆脱了尾槌压制。', 'status');
         events.push({ type: 'status', unitId: unit.id, status: 'lock-end' });
+      }
+      if (unit.status.eatBuff > 0 && self.round >= unit.status.eatBuffUntil) {
+        var stacks = unit.status.eatBuff;
+        unit.status.eatBuff = 0;
+        unit.status.eatBuffUntil = 0;
+        if (stacks >= 2) {
+          var healed = self.healUnit(unit, 2, events, '进食完毕');
+          self.pushLog(events, unit.name + ' 的「进食完毕」结束，恢复 ' + healed + ' 点生命。', 'heal');
+        } else {
+          self.pushLog(events, unit.name + ' 的「进食完毕」效果结束。', 'status');
+        }
+        events.push({ type: 'status', unitId: unit.id, status: 'eat-buff-end', stacks: stacks });
       }
       if (unit.status.devour && !unit.status.devour.active && unit.hp >= 4) {
         // 被打断的吞食可以稍后手动恢复，这里只保持记录。
@@ -1639,6 +1654,9 @@
     if (this.isFormActive(unit)) list.push({ key: 'form', label: '反击形态', short: '刃' });
     if (unit.status.ankyLock) list.push({ key: 'lock', label: '被尾槌压制', short: '晕' });
     if (unit.status.assaultBonus) list.push({ key: 'assault', label: '下次攻击 +1', short: '+1' });
+    if (unit.status.eatBuff > 0 && this.round <= unit.status.eatBuffUntil) {
+      list.push({ key: 'eat-buff', label: '进食完毕 ' + unit.status.eatBuff + ' 层 · 行动力 +1 · 剩 ' + Math.max(0, unit.status.eatBuffUntil - this.round) + ' 回合', short: '食' });
+    }
     if (unit.status.devour) {
       if (unit.status.devour.active) list.push({ key: 'devour', label: '吞食 ' + unit.status.devour.progress + '/' + unit.status.devour.needed, short: '食' });
       else list.push({ key: 'devour-pause', label: '吞食中断 ' + unit.status.devour.progress + '/' + unit.status.devour.needed, short: '停' });
@@ -1714,9 +1732,13 @@
     var plant = check.plant;
     this.consumeAction(unit);
     unit.hp = roundHalf(Math.min(unit.maxHp, unit.hp + 1));
+    var nextStacks = Math.min(2, (unit.status.eatBuff || 0) + 1);
+    unit.status.eatBuff = nextStacks;
+    unit.status.eatBuffUntil = this.round + (nextStacks >= 2 ? 4 : 3);
     plant.charges -= 1;
-    this.pushLog(events, unit.name + ' 食用可食植物，恢复 1 点生命。', 'heal');
+    this.pushLog(events, unit.name + ' 食用可食植物，恢复 1 点生命，获得「进食完毕」' + nextStacks + ' 层。', 'heal');
     events.push({ type: 'plant_eaten', unitId: unit.id, x: plant.x, y: plant.y, charges: plant.charges });
+    events.push({ type: 'status', unitId: unit.id, status: 'eat-buff', stacks: nextStacks });
     if (plant.charges <= 0) {
       this.plants = this.plants.filter(function (p) { return p !== plant; });
       this.pushLog(events, '该植物的可食部分已被吃光，本局不再生长。', 'status');
