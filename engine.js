@@ -1666,7 +1666,7 @@
     for (var gy = 0; gy < BOARD_SIZE; gy++) {
       for (var gx = 0; gx < BOARD_SIZE; gx++) {
         if (MAP.terrain[gy][gx] !== 'G') continue;
-        var nearWater = waters.some(function (w) { return Math.abs(w.x - gx) + Math.abs(w.y - gy) <= 2; });
+        var nearWater = waters.some(function (w) { return Math.max(Math.abs(w.x - gx), Math.abs(w.y - gy)) <= 2; });
         if (nearWater && this.rng() < 0.5) add(gx, gy, 'grass');
       }
     }
