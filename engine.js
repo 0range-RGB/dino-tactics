@@ -389,15 +389,28 @@
   };
 
 
+  Game.prototype.isHiddenCell = function (x, y) {
+    if (MAP.trees.some(function (cell) { return cell[0] === x && cell[1] === y; })) return true;
+    return !!this.getPlantAt(x, y);
+  };
+
   Game.prototype.getHiddenZones = function () {
-    var treeKeys = {};
-    MAP.trees.forEach(function (cell) { treeKeys[cell[0] + ',' + cell[1]] = true; });
+    var hiddenKeys = {};
+    var starts = [];
+    MAP.trees.forEach(function (cell) {
+      var key = cell[0] + ',' + cell[1];
+      if (!hiddenKeys[key]) { hiddenKeys[key] = true; starts.push({ x: cell[0], y: cell[1] }); }
+    });
+    (this.plants || []).forEach(function (plant) {
+      var key = plant.x + ',' + plant.y;
+      if (!hiddenKeys[key]) { hiddenKeys[key] = true; starts.push({ x: plant.x, y: plant.y }); }
+    });
     var seen = {};
     var zones = [];
-    MAP.trees.forEach(function (start) {
-      var startKey = start[0] + ',' + start[1];
+    starts.forEach(function (start) {
+      var startKey = start.x + ',' + start.y;
       if (seen[startKey]) return;
-      var queue = [{ x: start[0], y: start[1] }];
+      var queue = [{ x: start.x, y: start.y }];
       var cells = [];
       seen[startKey] = true;
       while (queue.length) {
@@ -407,7 +420,7 @@
           var nx = cur.x + dir.x;
           var ny = cur.y + dir.y;
           var key = nx + ',' + ny;
-          if (treeKeys[key] && !seen[key]) {
+          if (hiddenKeys[key] && !seen[key]) {
             seen[key] = true;
             queue.push({ x: nx, y: ny });
           }
@@ -453,6 +466,34 @@
     });
     if (unit.facing === 'S' || unit.facing === 'W') frontCells.reverse();
     return frontCells.slice(0, 2);
+  };
+
+  Game.prototype.getHiddenCellsForTeam = function (team) {
+    var revealed = {};
+    var self = this;
+    this.getTeamUnits(team).forEach(function (unit) {
+      if (!unit.alive) return;
+      self.getVisionCells(unit).forEach(function (cell) {
+        if (!self.isHiddenCell(cell.x, cell.y)) return;
+        for (var dx = -1; dx <= 1; dx++) {
+          for (var dy = -1; dy <= 1; dy++) {
+            revealed[(cell.x + dx) + ',' + (cell.y + dy)] = true;
+          }
+        }
+      });
+    });
+    var enemyTeam = team === 'blue' ? 'red' : 'blue';
+    var hidden = [];
+    this.getTeamUnits(enemyTeam).forEach(function (unit) {
+      if (!unit.alive) return;
+      self.getFootprint(unit).forEach(function (cell) {
+        var key = cell.x + ',' + cell.y;
+        if (self.isHiddenCell(cell.x, cell.y) && !revealed[key]) {
+          hidden.push({ unitId: unit.id, x: cell.x, y: cell.y });
+        }
+      });
+    });
+    return hidden;
   };
 
   Game.prototype.getFootprint = function (unit, x, y, facing) {
@@ -1907,6 +1948,7 @@
     g.units = JSON.parse(JSON.stringify(snapshot.units));
     g.corpses = JSON.parse(JSON.stringify(snapshot.corpses || []));
     g.plants = JSON.parse(JSON.stringify(snapshot.plants || []));
+    g.hiddenCells = JSON.parse(JSON.stringify(snapshot.hiddenCells || []));
     g.nextUnitId = snapshot.nextUnitId || (g.units.length + 1);
     g.nextCorpseId = snapshot.nextCorpseId || (g.corpses.length + 1);
     g.nextPlantId = snapshot.nextPlantId || (g.plants.length + 1);
