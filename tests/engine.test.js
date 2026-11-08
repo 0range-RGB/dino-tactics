@@ -6,12 +6,12 @@ const E = require('../engine.js');
 // 仅测试用木桩：替代已删除的三角龙作为通用多格目标。
 E.SPECIES.dummy = {
   type: 'dummy', name: '测试木桩', latin: 'Dummy', size: 2, role: 'fixture', tags: [],
-  hp: 6, armor: 4, attack: 3, move: 1, skillCd: 2,
+  diet: 'herbivore', hp: 6, armor: 4, attack: 3, move: 1, skillCd: 2,
   accent: '#888', emblem: '桩', skillName: '无', skillDesc: '',
   passiveName: '无', passiveDesc: '', skillType: 'active'
 };
 assert.strictEqual(E.BOARD_SIZE, 10, '测试套件版本不匹配：请确认 engine.js 是 10×10 版本');
-console.log('\n测试套件：10×10 棋盘 · 50 项');
+console.log('\n测试套件：10×10 棋盘 · 51 项');
 
 let passed = 0;
 function test(name, fn) {
@@ -986,6 +986,22 @@ test('进食完毕叠加、行动力加成与结束恢复', () => {
   g2.expireRoundStatuses([]);
   assert.strictEqual(u2.status.eatBuff, 0);
   assert.strictEqual(u2.hp, 3);
+});
+
+test('只有植食性恐龙可以食用植物', () => {
+  const herbivores = ['trike', 'stego', 'anky', 'leso'];
+  herbivores.forEach((type) => assert.strictEqual(E.SPECIES[type].diet, 'herbivore'));
+  assert.strictEqual(E.SPECIES.trex.diet, 'carnivore');
+  assert.strictEqual(E.SPECIES.velo.diet, 'carnivore');
+
+  const g = make(['velo'], ['leso']);
+  g.plants = [{ id: 'meat-test', x: 6, y: 5, kind: 'grass', charges: 2 }];
+  const v = g.getUnit('blue-1');
+  place(v, 5, 5, 'N');
+  v.hp = 1;
+  g.activeTeam = 'blue'; v.turn.done = false;
+  assert.strictEqual(g.canEatPlant(v.id, 6, 5).allowed, false);
+  assert.strictEqual(g.eatPlant(v.id, 6, 5).ok, false);
 });
 
 console.log('\n通过 ' + passed + ' 项测试' + (process.exitCode ? '，存在失败' : '。'));
