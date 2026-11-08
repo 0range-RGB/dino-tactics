@@ -11,7 +11,7 @@ E.SPECIES.dummy = {
   passiveName: '无', passiveDesc: '', skillType: 'active'
 };
 assert.strictEqual(E.BOARD_SIZE, 10, '测试套件版本不匹配：请确认 engine.js 是 10×10 版本');
-console.log('\n测试套件：10×10 棋盘 · 47 项');
+console.log('\n测试套件：10×10 棋盘 · 49 项');
 
 let passed = 0;
 function test(name, fn) {
@@ -916,6 +916,40 @@ test('地狱溪组地图为 10×10 四类地形', () => {
     'WGGFFFFFFF',
     'WSGFFFFFFF'
   ]);
+});
+
+test('草地与杉树林地按概率在开局生长植物', () => {
+  const g = new E.Game({ blueTeam: ['dummy'], redTeam: ['dummy'], deployOnly: true, rng: () => 0 });
+  assert.strictEqual(g.plants.length, 60);
+  g.plants.forEach((plant) => {
+    assert.strictEqual(plant.charges, 2);
+    const terrain = E.MAP.terrain[plant.y][plant.x];
+    assert.ok(terrain === 'G' || E.MAP.trees.some(([x, y]) => x === plant.x && y === plant.y));
+  });
+  const empty = new E.Game({ blueTeam: ['dummy'], redTeam: ['dummy'], deployOnly: true, rng: () => 1 });
+  assert.strictEqual(empty.plants.length, 0);
+});
+
+test('可食植物最多食用两次，吃完后消失', () => {
+  const g = make(['dummy'], ['leso']);
+  g.plants = [{ id: 'plant-test', x: 5, y: 5, kind: 'grass', charges: 2 }];
+  const u = g.getUnit('blue-1');
+  place(u, 4, 5, 'N');
+  u.hp = 4;
+  g.activeTeam = 'blue';
+  u.turn.done = false; u.turn.actionUsed = false;
+  const first = g.eatPlant(u.id, 5, 5);
+  assert.ok(first.ok, first.error);
+  assert.strictEqual(u.hp, 5);
+  assert.strictEqual(g.getPlantAt(5, 5).charges, 1);
+  u.turn.done = false; u.turn.actionUsed = false;
+  const second = g.eatPlant(u.id, 5, 5);
+  assert.ok(second.ok, second.error);
+  assert.strictEqual(u.hp, 6);
+  assert.strictEqual(g.getPlantAt(5, 5), null);
+  assert.strictEqual(g.plants.length, 0);
+  u.turn.done = false; u.turn.actionUsed = false;
+  assert.strictEqual(g.eatPlant(u.id, 5, 5).ok, false);
 });
 
 console.log('\n通过 ' + passed + ' 项测试' + (process.exitCode ? '，存在失败' : '。'));
