@@ -11,7 +11,7 @@ E.SPECIES.dummy = {
   passiveName: '无', passiveDesc: '', skillType: 'active'
 };
 assert.strictEqual(E.BOARD_SIZE, 10, '测试套件版本不匹配：请确认 engine.js 是 10×10 版本');
-console.log('\n测试套件：10×10 棋盘 · 53 项');
+console.log('\n测试套件：10×10 棋盘 · 54 项');
 
 let passed = 0;
 function test(name, fn) {
@@ -1056,6 +1056,21 @@ test('视觉格按体型与朝向计算', () => {
   assert.deepStrictEqual(g.getVisionCells(t), [{ x: 5, y: 5 }, { x: 6, y: 5 }]);
   place(t, 5, 5, 'E');
   assert.deepStrictEqual(g.getVisionCells(t), [{ x: 6, y: 5 }, { x: 6, y: 6 }]);
+});
+
+test('杉树隐藏格按上下左右连通分组', () => {
+  const g = make(['dummy'], ['dummy']);
+  const zones = g.getHiddenZones();
+  assert.strictEqual(zones.length, 4);
+  assert.deepStrictEqual(zones.map(z => z.cells.length), [35, 5, 1, 5]);
+  const treeKeys = new Set(E.MAP.trees.map(([x, y]) => x + ',' + y));
+  zones.forEach((zone) => {
+    zone.cells.forEach((cell) => {
+      assert.ok(treeKeys.has(cell.x + ',' + cell.y));
+      assert.strictEqual(g.getHiddenZoneAt(cell.x, cell.y).id, zone.id);
+    });
+  });
+  assert.strictEqual(g.getHiddenZoneAt(0, 0), null);
 });
 
 console.log('\n通过 ' + passed + ' 项测试' + (process.exitCode ? '，存在失败' : '。'));
