@@ -138,6 +138,9 @@ function broadcastPresence(room) {
 
 function snapshotForTeam(game, team) {
   const snap = game.snapshot();
+  if (game.phase === 'battle') {
+    snap.hiddenCells = game.getHiddenCellsForTeam(team);
+  }
   if (game.phase === 'deploy') {
     for (const unit of snap.units) {
       if (unit.team === team) continue;
