@@ -1052,7 +1052,7 @@
         var label = first.short;
         if (first.key === 'bleed') label = '血' + unit.status.bleed.length;
         if (first.key === 'devour' || first.key === 'devour-pause') label = '食';
-        var badgeClass = first.key === 'bleed' ? 'bleed' : first.key === 'guard' ? 'guard' : first.key === 'devour' || first.key === 'devour-pause' ? 'devour' : first.key === 'assault' ? 'assault' : first.key === 'hook' ? 'hook' : first.key === 'hook-received' ? 'hook-received' : first.key === 'hook-cooldown' ? 'hook-cooldown' : first.key === 'eat-buff' ? 'eat-buff' : '';
+        var badgeClass = first.key === 'bleed' ? 'bleed' : first.key === 'guard' ? 'guard' : first.key === 'devour' || first.key === 'devour-pause' ? 'devour' : first.key === 'assault' ? 'assault' : first.key === 'hook' ? 'hook' : first.key === 'hook-received' ? 'hook-received' : first.key === 'hook-cooldown' ? 'hook-cooldown' : first.key === 'eat-buff' ? 'eat-buff' : first.key === 'eating' ? 'eating' : '';
         badge = '<span class="token-status ' + badgeClass + '">' + label + '</span>';
       }
       var icon = dinoSvg(unit.type);
@@ -1187,12 +1187,16 @@
       els.actionPanel.innerHTML = '<div class="action-head"><strong>吞食中</strong><span>FEEDING</span></div><div class="no-actions">霸王龙正在吞食猎物：进度 <b style="color:var(--amber-soft)">' + selected.status.devour.progress + '/' + selected.status.devour.needed + '</b>。每回合恢复 1 点生命，期间无法行动。</div><div class="action-footer"><button class="btn btn-ghost" type="button" data-action="end-unit">结束观察</button></div>';
       return;
     }
+    if (selected.status.eating) {
+      els.actionPanel.innerHTML = '<div class="action-head"><strong>进食中</strong><span>EATING</span></div><div class="no-actions">本回合正在进食，无法移动、攻击或使用技能；受到攻击会被打断。完成回合：<b style="color:var(--amber-soft)">第 ' + selected.status.eating.completeRound + ' 回合</b>。</div>';
+      return;
+    }
 
     var skill = g.getSkillStatus(selected);
     var targets = g.getAttackTargets(selected);
     var moveLeft = g.getMoveLeft(selected);
     var corpseResume = canResumeDevour(selected);
-    var ediblePlants = selected.hp < selected.maxHp && SPECIES[selected.type].diet === 'herbivore' ? g.getAdjacentPlants(selected) : [];
+    var ediblePlants = SPECIES[selected.type].diet === 'herbivore' ? g.getFacingPlants(selected) : [];
     var done = selected.turn.done;
     var controlsLocked = state.busy || (state.mode === 'online' && !state.online.connected);
     var hookStacks = g.getHookStacks(selected);
@@ -1229,7 +1233,7 @@
         (releaseCheck.allowed ? '<button type="button" class="action-btn" data-action="release-hook" ' + (controlsLocked ? 'disabled' : '') + '><span class="action-icon">收</span><span class="action-copy"><b>解除钩挂</b><small>结束自身钩挂，消耗本回合行动</small></span></button>' : '') +
         (corpseResume ? '<button type="button" class="action-btn devour" data-action="resume-devour"><span class="action-icon">食</span><span class="action-copy"><b>继续吞食</b><small>消耗本回合，恢复 1 点生命</small></span></button>' : '') +
         ediblePlants.map(function (plant) {
-          return '<button type="button" class="action-btn" data-action="eat-plant" data-x="' + plant.x + '" data-y="' + plant.y + '" ' + (controlsLocked ? 'disabled' : '') + '><span class="action-icon">' + (plant.kind === 'forest' ? '🌲' : '🌿') + '</span><span class="action-copy"><b>食用植物</b><small>恢复 1 点生命 · 剩余 ' + plant.charges + ' 次</small></span><span class="action-key">进食</span></button>';
+          return '<button type="button" class="action-btn" data-action="eat-plant" data-x="' + plant.x + '" data-y="' + plant.y + '" ' + (controlsLocked ? 'disabled' : '') + '><span class="action-icon">' + (plant.kind === 'forest' ? '🌲' : '🌿') + '</span><span class="action-copy"><b>开始进食</b><small>持续 1 回合 · 受攻击会被打断 · 剩余 ' + plant.charges + ' 次</small></span><span class="action-key">进食</span></button>';
         }).join('') +
         (targets.length ? '<div class="action-btn attack" style="cursor:default"><span class="action-icon">⚔</span><span class="action-copy"><b>攻击 · ' + targets.length + ' 个目标</b><small>点击棋盘上红色高亮的敌人</small></span><span class="action-key">相邻</span></div>' : '') +
       '</div>' +
@@ -2258,12 +2262,16 @@
         ringAt(ev.x, ev.y, 'heal');
         flashToken(ev.unitId, 'healed');
         Sound.heal();
-      } else if (ev.type === 'plant_eaten') {
+      } else if (ev.type === 'eat_started') {
+        toast('开始进食，持续一回合；期间受到攻击会被打断');
+      } else if (ev.type === 'eat_complete') {
         floatAt(ev.x, ev.y, '+1', 'heal');
         ringAt(ev.x, ev.y, 'heal');
         flashToken(ev.unitId, 'healed');
         Sound.heal();
-        toast('食用植物，恢复 1 点生命');
+        toast('进食完毕，获得「进食完毕」' + ev.stacks + ' 层');
+      } else if (ev.type === 'eat_interrupted') {
+        toast('进食被打断，未获得「进食完毕」');
       } else if (ev.type === 'guard') {
         floatAt(ev.x, ev.y, '格挡', 'guard');
         ringAt(ev.x, ev.y, 'guard');
@@ -3045,7 +3053,7 @@
         '<p>双方各有一支容量为 <b>' + E.TEAM_CAPACITY + '</b> 的恐龙军团，在 10 × 10 的方格战场上轮流行动。开局先在各自半场布阵，再进入战斗；消灭对方全部恐龙即可获胜。</p>' +
         '<div class="rule-grid">' +
           '<div class="rule-box"><strong>地图 · 地狱溪组</strong><span>深绿色为林地，黄色为沙地，浅绿色为草地，蓝色为浅水。<i class="terrain-swatch terrain-f"></i>林地 <i class="terrain-swatch terrain-s"></i>沙地 <i class="terrain-swatch terrain-g"></i>草地 <i class="terrain-swatch terrain-w"></i>浅水。地形决定可食植物的生长条件，不改变移动与攻击规则。</span></div>' +
-          '<div class="rule-box"><strong>可食植物</strong><span>开局时，距离浅水两格以内的草地有 50% 生长可食植物；带杉树的林地有 70% 生长可食植物。每株植物只能由植食性恐龙（三角龙、剑龙、甲龙、勒苏维斯龙）食用；每株可被食用 2 次，每次恢复 1 点生命并消耗行动；吃光后消失，本局该格不再生长。食用后获得「进食完毕」：1 层持续 3 回合，行动力 +1；2 层持续 4 回合，行动力 +1，结束后恢复 2 点生命。</span></div>' +
+          '<div class="rule-box"><strong>可食植物</strong><span>开局时，距离浅水两格以内的草地有 50% 生长可食植物；带杉树的林地有 70% 生长可食植物。只有植食性恐龙（三角龙、剑龙、甲龙、勒苏维斯龙）能进食，且植物必须在朝向一格内。进食持续 1 回合：期间不能移动、攻击或使用技能，受到伤害 +20%；受到攻击会立即打断，不获得效果，植物也不会被消耗。完成进食恢复 1 点生命、消耗植物 1 次，并获得「进食完毕」：1 层持续 3 回合、行动力 +1；2 层持续 4 回合、行动力 +1，效果结束时恢复 2 点生命。植物最多被吃 2 次，吃光后本局不再生长。</span></div>' +
           '<div class="rule-box"><strong>开局布阵</strong><span>开局时双方可在本方半场任意空格放置恐龙并调整朝向，不消耗行动力。双方完成布阵后，蓝方先手进入第 1 回合。</span></div>' +
           '<div class="rule-box"><strong>队伍容量与占格</strong><span>小型恐龙占 1 格、消耗 1 容量；中型占 2 格 / 2 容量；三角龙与霸王龙为大型，占 4 格 / 4 容量。可重复编入同种恐龙，但每队总容量不能超过 ' + E.TEAM_CAPACITY + '。</span></div>' +
           '<div class="rule-box"><strong>行动流程</strong><span>每只恐龙每回合可移动，然后攻击或发动技能；也可以不移动。攻击或结束行动后该单位本回合结束。</span></div>' +
