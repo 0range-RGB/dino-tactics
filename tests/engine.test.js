@@ -11,7 +11,7 @@ E.SPECIES.dummy = {
   passiveName: '无', passiveDesc: '', skillType: 'active'
 };
 assert.strictEqual(E.BOARD_SIZE, 10, '测试套件版本不匹配：请确认 engine.js 是 10×10 版本');
-console.log('\n测试套件：10×10 棋盘 · 49 项');
+console.log('\n测试套件：10×10 棋盘 · 50 项');
 
 let passed = 0;
 function test(name, fn) {
@@ -950,6 +950,42 @@ test('可食植物最多食用两次，吃完后消失', () => {
   assert.strictEqual(g.plants.length, 0);
   u.turn.done = false; u.turn.actionUsed = false;
   assert.strictEqual(g.eatPlant(u.id, 5, 5).ok, false);
+});
+
+test('进食完毕叠加、行动力加成与结束恢复', () => {
+  const g = make(['dummy'], ['leso']);
+  g.plants = [{ id: 'buff-plant', x: 5, y: 5, kind: 'grass', charges: 2 }];
+  const u = g.getUnit('blue-1');
+  place(u, 4, 5, 'N');
+  u.hp = 2;
+  g.activeTeam = 'blue';
+  u.turn.done = false; u.turn.actionUsed = false;
+  assert.ok(g.eatPlant(u.id, 5, 5).ok);
+  assert.strictEqual(u.status.eatBuff, 1);
+  assert.strictEqual(u.status.eatBuffUntil, 4);
+  g.startTeamTurn('blue', []);
+  assert.strictEqual(g.getMoveLeft(u), u.move + 1);
+  u.turn.done = false; u.turn.actionUsed = false;
+  assert.ok(g.eatPlant(u.id, 5, 5).ok);
+  assert.strictEqual(u.status.eatBuff, 2);
+  assert.strictEqual(u.status.eatBuffUntil, 5);
+  assert.strictEqual(u.hp, 4);
+  g.round = 5;
+  g.expireRoundStatuses([]);
+  assert.strictEqual(u.status.eatBuff, 0);
+  assert.strictEqual(u.hp, 6);
+
+  const g2 = make(['dummy'], ['leso']);
+  g2.plants = [{ id: 'buff-plant-2', x: 5, y: 5, kind: 'grass', charges: 2 }];
+  const u2 = g2.getUnit('blue-1');
+  place(u2, 4, 5, 'N');
+  u2.hp = 2;
+  g2.activeTeam = 'blue'; u2.turn.done = false; u2.turn.actionUsed = false;
+  assert.ok(g2.eatPlant(u2.id, 5, 5).ok);
+  g2.round = 4;
+  g2.expireRoundStatuses([]);
+  assert.strictEqual(u2.status.eatBuff, 0);
+  assert.strictEqual(u2.hp, 3);
 });
 
 console.log('\n通过 ' + passed + ' 项测试' + (process.exitCode ? '，存在失败' : '。'));
