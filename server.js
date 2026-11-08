@@ -262,6 +262,9 @@ function applyGameAction(game, action) {
         return game.moveUnit(String(action.unitId || ''), action.x, action.y);
       case 'attack':
         return game.attack(String(action.unitId || ''), String(action.targetId || ''));
+      case 'eatPlant':
+        if (!intCoord(action.x) || !intCoord(action.y)) return { ok: false, error: '无效的植物坐标。' };
+        return game.eatPlant(String(action.unitId || ''), action.x, action.y);
       case 'skill':
         return game.useSkill(String(action.unitId || ''), action.targetId ? String(action.targetId) : undefined);
       case 'rotate':
