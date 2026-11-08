@@ -15,8 +15,8 @@
   var CAN_HOVER = !!(window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches);
 
   var DEFAULT_SETUP = {
-    blue: { trike: 1, trex: 0, leso: 1, stego: 0, anky: 0, velo: 0 },
-    red: { trike: 0, trex: 1, leso: 1, stego: 0, anky: 0, velo: 0 }
+    blue: { trike: 1, trex: 0, leso: 1, stego: 0, anky: 0, velo: 2 },
+    red: { trike: 1, trex: 0, leso: 1, stego: 0, anky: 0, velo: 2 }
   };
 
   var DINO_SVG = {
@@ -1010,7 +1010,9 @@
     if (!g) { els.fogLayer.innerHTML = ''; return; }
     var hidden = g.hiddenCells;
     if (state.mode !== 'online' || !hidden) {
-      var viewer = state.mode === 'online' ? (state.online.team || 'blue') : 'blue';
+      var viewer = state.mode === 'online'
+        ? (state.online.team || 'blue')
+        : state.mode === 'pvp' ? g.activeTeam : 'blue';
       hidden = g.getHiddenCellsForTeam(viewer);
     }
     var html = '';
@@ -2775,6 +2777,13 @@
     }
 
     var target = chooseAITarget(unit);
+    var plants = SPECIES[unit.type].diet === 'herbivore' ? g.getFacingPlants(unit) : [];
+    var killNow = target && target.hp <= g.getAttack(unit);
+    if (plants.length && unit.hp < unit.maxHp && unit.hp <= unit.maxHp * 0.5 && (!target || !killNow)) {
+      var plant = plants[0];
+      await perform(function () { return g.eatPlant(unit.id, plant.x, plant.y); });
+      return;
+    }
     if (!target) {
       await perform(function () { return g.endUnit(unit.id); });
       return;
@@ -2897,7 +2906,7 @@
   function chooseAITarget(unit) {
     var g = state.game;
     var sources = g.getHookSourceIds(unit);
-    var enemies = g.getEnemies(unit.team).filter(function (e) { return sources.indexOf(e.id) < 0 && !g.isLockedFromAttacking(unit, e); });
+    var enemies = g.getEnemies(unit.team).filter(function (e) { return sources.indexOf(e.id) < 0 && g.isUnitVisibleTo(unit.team, e) && !g.isLockedFromAttacking(unit, e); });
     if (!enemies.length) return null;
     var atk = g.getAttack(unit);
     enemies.sort(function (a, b) {
@@ -3073,7 +3082,7 @@
         '<p>双方各有一支容量为 <b>' + E.TEAM_CAPACITY + '</b> 的恐龙军团，在 10 × 10 的方格战场上轮流行动。开局先在各自半场布阵，再进入战斗；消灭对方全部恐龙即可获胜。</p>' +
         '<div class="rule-grid">' +
           '<div class="rule-box"><strong>地图 · 地狱溪组</strong><span>深绿色为林地，黄色为沙地，浅绿色为草地，蓝色为浅水。<i class="terrain-swatch terrain-f"></i>林地 <i class="terrain-swatch terrain-s"></i>沙地 <i class="terrain-swatch terrain-g"></i>草地 <i class="terrain-swatch terrain-w"></i>浅水。地形决定可食植物的生长条件，不改变移动与攻击规则。</span></div>' +
-          '<div class="rule-box"><strong>隐藏区</strong><span>带杉树的林地格，以及生长有可食植物的草地格，具有隐藏效果。上下左右相连的隐藏格组成同一个隐藏区。己方单位任一占格位于隐藏格时，只隐藏该占格，不会隐藏整只单位；当己方视觉格本身位于隐藏区时，可揭示该视觉格周围一圈内的敌方隐藏格。</span></div>' +
+          '<div class="rule-box"><strong>隐藏区</strong><span>带杉树的林地格，以及生长有可食植物的草地格，具有隐藏效果。上下左右相连的隐藏格组成同一个隐藏区。己方单位任一占格位于隐藏格时，只隐藏该占格，不会隐藏整只单位；完全隐藏的单位不能被攻击或选为技能目标。当己方视觉格本身位于隐藏区时，可揭示该视觉格周围一圈内的敌方隐藏格。</span></div>' +
           '<div class="rule-box"><strong>视觉格</strong><span>小型恐龙以自身所占格为视觉格；中型恐龙以朝向最前方的一格为视觉格；大型恐龙有左前、右前两个视觉格。选中单位时棋盘上会以金色描边显示。</span></div>' +
           '<div class="rule-box"><strong>可食植物</strong><span>开局时，距离浅水两格以内的草地有 50% 生长可食植物；带杉树的林地有 70% 生长可食植物。只有植食性恐龙（三角龙、剑龙、甲龙、勒苏维斯龙）能进食，且植物必须在朝向一格内。进食持续 1 回合：期间不能移动、攻击或使用技能，受到伤害 +20%；受到攻击会立即打断，不获得效果，植物也不会被消耗。完成进食恢复 1 点生命、消耗植物 1 次，并获得「进食完毕」：1 层持续 3 回合、行动力 +1；2 层持续 4 回合、行动力 +1，效果结束时恢复 2 点生命。植物最多被吃 2 次，吃光后本局不再生长。</span></div>' +
           '<div class="rule-box"><strong>开局布阵</strong><span>开局时双方可在本方半场任意空格放置恐龙并调整朝向，不消耗行动力。双方完成布阵后，蓝方先手进入第 1 回合。</span></div>' +
