@@ -86,9 +86,7 @@ function capacityOfLineup(lineup) {
 }
 
 function defaultLineup(team) {
-  return team === 'blue'
-    ? ['trike', 'leso']
-    : ['trex', 'leso'];
+  return ['trike', 'leso', 'velo', 'velo'];
 }
 
 function publicRoom(room, forTeam) {
