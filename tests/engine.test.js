@@ -11,7 +11,7 @@ E.SPECIES.dummy = {
   passiveName: '无', passiveDesc: '', skillType: 'active'
 };
 assert.strictEqual(E.BOARD_SIZE, 10, '测试套件版本不匹配：请确认 engine.js 是 10×10 版本');
-console.log('\n测试套件：10×10 棋盘 · 55 项');
+console.log('\n测试套件：10×10 棋盘 · 56 项');
 
 let passed = 0;
 function test(name, fn) {
@@ -1088,6 +1088,19 @@ test('隐藏格不被敌方看见，视觉格进入隐藏区后揭示周围', ()
   place(viewer, 4, 0, 'N');
   hidden = g.getHiddenCellsForTeam('blue');
   assert.strictEqual(hidden.some((c) => c.unitId === target.id && c.x === 3 && c.y === 0), false);
+});
+
+test('隐藏只作用于位于隐藏格的单位占格，而不是整只单位', () => {
+  const g = new E.Game({ blueTeam: ['velo'], redTeam: ['leso'], deployOnly: true, rng: () => 1 });
+  g.plants = [];
+  const viewer = g.getUnit('blue-1');
+  const target = g.getUnit('red-2');
+  place(viewer, 0, 0, 'N');
+  place(target, 2, 7, 'N');
+  g.phase = 'battle';
+  const hidden = g.getHiddenCellsForTeam('blue').filter((c) => c.unitId === target.id);
+  assert.deepStrictEqual(hidden, [{ unitId: target.id, x: 2, y: 7 }]);
+  assert.strictEqual(hidden.some((c) => c.x === 2 && c.y === 8), false);
 });
 
 console.log('\n通过 ' + passed + ' 项测试' + (process.exitCode ? '，存在失败' : '。'));
