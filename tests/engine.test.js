@@ -11,7 +11,7 @@ E.SPECIES.dummy = {
   passiveName: '无', passiveDesc: '', skillType: 'active'
 };
 assert.strictEqual(E.BOARD_SIZE, 10, '测试套件版本不匹配：请确认 engine.js 是 10×10 版本');
-console.log('\n测试套件：10×10 棋盘 · 52 项');
+console.log('\n测试套件：10×10 棋盘 · 53 项');
 
 let passed = 0;
 function test(name, fn) {
@@ -1039,6 +1039,23 @@ test('进食期间多受 20% 伤害，受攻击会打断', () => {
   assert.strictEqual(u.status.eating, null);
   assert.strictEqual(u.status.eatBuff, 0);
   assert.strictEqual(g.getPlantAt(4, 4).charges, 2);
+});
+
+test('视觉格按体型与朝向计算', () => {
+  const g = make(['velo', 'leso', 'trike'], ['dummy']);
+  const v = g.getUnit('blue-1');
+  const l = g.getUnit('blue-2');
+  const t = g.getUnit('blue-3');
+  place(v, 5, 5, 'N');
+  assert.deepStrictEqual(g.getVisionCells(v), [{ x: 5, y: 5 }]);
+  place(l, 4, 5, 'N');
+  assert.deepStrictEqual(g.getVisionCells(l), [{ x: 4, y: 5 }]);
+  place(l, 4, 5, 'E');
+  assert.deepStrictEqual(g.getVisionCells(l), [{ x: 4, y: 5 }]);
+  place(t, 5, 5, 'N');
+  assert.deepStrictEqual(g.getVisionCells(t), [{ x: 5, y: 5 }, { x: 6, y: 5 }]);
+  place(t, 5, 5, 'E');
+  assert.deepStrictEqual(g.getVisionCells(t), [{ x: 6, y: 5 }, { x: 6, y: 6 }]);
 });
 
 console.log('\n通过 ' + passed + ' 项测试' + (process.exitCode ? '，存在失败' : '。'));
