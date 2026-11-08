@@ -11,7 +11,7 @@ E.SPECIES.dummy = {
   passiveName: '无', passiveDesc: '', skillType: 'active'
 };
 assert.strictEqual(E.BOARD_SIZE, 10, '测试套件版本不匹配：请确认 engine.js 是 10×10 版本');
-console.log('\n测试套件：10×10 棋盘 · 54 项');
+console.log('\n测试套件：10×10 棋盘 · 55 项');
 
 let passed = 0;
 function test(name, fn) {
@@ -1060,6 +1060,7 @@ test('视觉格按体型与朝向计算', () => {
 
 test('杉树隐藏格按上下左右连通分组', () => {
   const g = make(['dummy'], ['dummy']);
+  g.plants = [];
   const zones = g.getHiddenZones();
   assert.strictEqual(zones.length, 4);
   assert.deepStrictEqual(zones.map(z => z.cells.length), [35, 5, 1, 5]);
@@ -1071,6 +1072,22 @@ test('杉树隐藏格按上下左右连通分组', () => {
     });
   });
   assert.strictEqual(g.getHiddenZoneAt(0, 0), null);
+});
+
+test('隐藏格不被敌方看见，视觉格进入隐藏区后揭示周围', () => {
+  const g = new E.Game({ blueTeam: ['velo'], redTeam: ['velo'], deployOnly: true, rng: () => 1 });
+  g.plants = [];
+  const viewer = g.getUnit('blue-1');
+  const target = g.getUnit('red-2');
+  place(viewer, 4, 5, 'N');
+  place(target, 3, 0, 'N');
+  g.phase = 'battle';
+  let hidden = g.getHiddenCellsForTeam('blue');
+  assert.ok(hidden.some((c) => c.unitId === target.id && c.x === 3 && c.y === 0));
+
+  place(viewer, 4, 0, 'N');
+  hidden = g.getHiddenCellsForTeam('blue');
+  assert.strictEqual(hidden.some((c) => c.unitId === target.id && c.x === 3 && c.y === 0), false);
 });
 
 console.log('\n通过 ' + passed + ' 项测试' + (process.exitCode ? '，存在失败' : '。'));
