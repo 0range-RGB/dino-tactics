@@ -389,6 +389,33 @@
   };
 
 
+  Game.prototype.getVisionCells = function (unit) {
+    if (!unit || !unit.alive) return [];
+    if (unit.size <= 1) return [{ x: unit.x, y: unit.y }];
+    var footprint = this.getFootprint(unit);
+    if (!footprint.length) return [];
+    var bounds = this.getUnitBounds(unit);
+    if (unit.size === 2) {
+      var front;
+      if (unit.facing === 'N') front = footprint.filter(function (c) { return c.y === bounds.minY; });
+      else if (unit.facing === 'S') front = footprint.filter(function (c) { return c.y === bounds.maxY; });
+      else if (unit.facing === 'E') front = footprint.filter(function (c) { return c.x === bounds.maxX; });
+      else front = footprint.filter(function (c) { return c.x === bounds.minX; });
+      return front.slice(0, 1);
+    }
+    var frontCells;
+    if (unit.facing === 'N') frontCells = footprint.filter(function (c) { return c.y === bounds.minY; });
+    else if (unit.facing === 'S') frontCells = footprint.filter(function (c) { return c.y === bounds.maxY; });
+    else if (unit.facing === 'E') frontCells = footprint.filter(function (c) { return c.x === bounds.maxX; });
+    else frontCells = footprint.filter(function (c) { return c.x === bounds.minX; });
+    frontCells.sort(function (a, b) {
+      if (unit.facing === 'N' || unit.facing === 'S') return a.x - b.x;
+      return a.y - b.y;
+    });
+    if (unit.facing === 'S' || unit.facing === 'W') frontCells.reverse();
+    return frontCells.slice(0, 2);
+  };
+
   Game.prototype.getFootprint = function (unit, x, y, facing) {
     if (!unit) return [];
     return footprintCells(unit, x, y, facing);
