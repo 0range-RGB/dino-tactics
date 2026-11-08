@@ -264,6 +264,7 @@
     this.activeTeam = config.deployOnly ? null : 'blue';
     this.phase = config.deployOnly ? 'deploy' : 'battle';
     this.deployOnly = !!config.deployOnly;
+    this.hiddenEnabled = config.hiddenEnabled !== false;
     this.winner = null;
     this.units = [];
     this.corpses = [];
@@ -468,7 +469,20 @@
     return frontCells.slice(0, 2);
   };
 
+  Game.prototype.isUnitVisibleTo = function (team, unit) {
+    if (!unit || !unit.alive) return false;
+    if (unit.team === team) return true;
+    if (this.phase !== 'battle') return true;
+    var hidden = this.getHiddenCellsForTeam(team).filter(function (cell) { return cell.unitId === unit.id; });
+    if (!hidden.length) return true;
+    var cells = this.getFootprint(unit);
+    var hiddenKeys = {};
+    hidden.forEach(function (cell) { hiddenKeys[cell.x + ',' + cell.y] = true; });
+    return cells.some(function (cell) { return !hiddenKeys[cell.x + ',' + cell.y]; });
+  };
+
   Game.prototype.getHiddenCellsForTeam = function (team) {
+    if (this.hiddenEnabled === false) return [];
     var revealed = {};
     var self = this;
     this.getTeamUnits(team).forEach(function (unit) {
@@ -837,6 +851,7 @@
     var sources = this.getHookSourceIds(unit);
     return this.getEnemies(unit.team).filter(function (enemy) {
       if (sources.indexOf(enemy.id) >= 0) return false;
+      if (!self.isUnitVisibleTo(unit.team, enemy)) return false;
       return self.isAdjacent(unit, enemy) && !self.isLockedFromAttacking(unit, enemy);
     });
   };
@@ -856,7 +871,7 @@
     return this.getSideCells(unit).map(function (side) {
       for (var i = 0; i < footprint.length; i++) {
         var target = self.unitAt(footprint[i].x + side.x, footprint[i].y + side.y);
-        if (target && target.alive && target.team !== unit.team && !seen[target.id] && !self.isLockedFromAttacking(unit, target) && self.getHookSourceIds(unit).indexOf(target.id) < 0) {
+        if (target && target.alive && target.team !== unit.team && self.isUnitVisibleTo(unit.team, target) && !seen[target.id] && !self.isLockedFromAttacking(unit, target) && self.getHookSourceIds(unit).indexOf(target.id) < 0) {
           seen[target.id] = true;
           return target;
         }
@@ -1041,6 +1056,7 @@
     if (unit.turn.done || unit.turn.actionUsed) return { ok: false, error: '本单位本回合已结束行动。', events: events };
     var target = this.getUnit(targetId);
     if (!target || !target.alive || target.team === unit.team) return { ok: false, error: '请选择敌方单位。', events: events };
+    if (!this.isUnitVisibleTo(unit.team, target)) return { ok: false, error: '目标处于隐藏状态，无法攻击。', events: events };
     if (this.getHookSourceIds(unit).indexOf(target.id) >= 0) return { ok: false, error: '受钩挂影响，无法攻击施加者。', events: events };
     if (!this.isAdjacent(unit, target)) return { ok: false, error: '目标不在攻击范围内。', events: events };
     if (this.isLockedFromAttacking(unit, target)) return { ok: false, error: '你被尾槌压制，无法攻击这只甲龙。', events: events };
@@ -1518,6 +1534,7 @@
     if (!dir) return null;
     var target = this.unitAt(unit.x + dir.x, unit.y + dir.y);
     if (!target || !target.alive || target.team === unit.team) return null;
+    if (!this.isUnitVisibleTo(unit.team, target)) return null;
     return target;
   };
 
@@ -1808,7 +1825,13 @@
     var self = this;
     this.plants = [];
     var waters = [];
+    var occupied = {};
+    this.units.forEach(function (unit) {
+      if (!unit.alive) return;
+      self.getFootprint(unit).forEach(function (cell) { occupied[cell.x + ',' + cell.y] = true; });
+    });
     var add = function (x, y, kind) {
+      if (occupied[x + ',' + y]) return;
       self.plants.push({ id: 'plant-' + (self.nextPlantId++), x: x, y: y, kind: kind, charges: 2 });
     };
     for (var y = 0; y < BOARD_SIZE; y++) {
@@ -1945,6 +1968,7 @@
     g.activeTeam = Object.prototype.hasOwnProperty.call(snapshot, 'activeTeam') ? snapshot.activeTeam : 'blue';
     g.phase = snapshot.phase || 'battle';
     g.winner = snapshot.winner || null;
+    g.hiddenEnabled = snapshot.hiddenEnabled !== false;
     g.units = JSON.parse(JSON.stringify(snapshot.units));
     g.corpses = JSON.parse(JSON.stringify(snapshot.corpses || []));
     g.plants = JSON.parse(JSON.stringify(snapshot.plants || []));
