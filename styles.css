@@ -875,6 +875,7 @@ button:focus-visible, [role="button"]:focus-visible {
 .token-status.devour { background: #d6a24b; }
 .token-status.assault { background: #d46a45; color: #fff; }
 .token-status.eat-buff { background: #7ec96b; color: #0b1a0a; }
+.token-status.eating { background: #d9b35b; color: #1a1204; }
 .token-status.hook { background: #9dbb3e; color: #101808; }
 .token-status.hook-received { background: #d9953d; color: #1a1000; }
 .token-status.hook-cooldown { background: #8064c7; color: #fff; }
