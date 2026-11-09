@@ -87,7 +87,7 @@
       accent: '#ff9b63',
       emblem: '王',
       skillName: '突袭',
-      skillDesc: '本回合增加 2 点行动力；下一次攻击伤害 +1；发动后仍可进行攻击。',
+      skillDesc: '本回合增加 2 点行动力；发动后仍可进行攻击，不再增加攻击伤害。',
       passiveName: '温血供应',
       passiveDesc: '击杀敌人后不立即恢复生命，而是吞食尸体：小型 1 回合、中型 2 回合、大型 3 回合，每回合恢复 1 点生命。吞食期间无法行动；受到 ≥3 点伤害会被打断，进度保留。生命低于 4 时改为普通击杀恢复。',
       skillType: 'active'
@@ -326,7 +326,6 @@
           pierceUsed: false,
           ankyLock: null,
           devour: null,
-          assaultBonus: 0,
           guard: false,
           eatBuff: 0,
           eatBuffUntil: 0,
@@ -964,9 +963,8 @@
       unit.turn.moveLeft += 2;
       unit.turn.extraMove += 2;
       unit.turn.skillUsed = true;
-      unit.status.assaultBonus = 1;
       unit.skillReadyRound = this.round + def.skillCd + 1;
-      this.pushLog(events, unit.name + ' 进入突袭状态：本回合行动力 +2，下一次攻击伤害 +1，仍可攻击。', 'status');
+      this.pushLog(events, unit.name + ' 进入突袭状态：本回合行动力 +2，仍可攻击。', 'status');
       events.push({ type: 'status', unitId: unit.id, status: 'assault' });
     } else if (unit.type === 'stego') {
       unit.status.formUntil = this.round + 1;
@@ -1087,13 +1085,6 @@
       raw += 2;
       this.pushLog(events, unit.name + ' 处于钩挂状态，攻击 +2。', 'hook');
       events.push({ type: 'status', unitId: unit.id, status: 'hook-attack' });
-    }
-    if (unit.type === 'trex' && unit.status.assaultBonus) {
-      var bonus = unit.status.assaultBonus;
-      unit.status.assaultBonus = 0;
-      raw += bonus;
-      this.pushLog(events, unit.name + ' 的突袭蓄力生效，本次攻击伤害 +' + bonus + '。', 'status');
-      events.push({ type: 'status', unitId: unit.id, status: 'assault-used' });
     }
     var pierce = false;
     var formAtHit = this.isFormActive(unit);
@@ -1821,7 +1812,6 @@
     if (unit.status.bleed.length) list.push({ key: 'bleed', label: '流血 ' + unit.status.bleed.length + ' 层', short: '血' });
     if (this.isFormActive(unit)) list.push({ key: 'form', label: '反击形态', short: '刃' });
     if (unit.status.ankyLock) list.push({ key: 'lock', label: '被尾槌压制', short: '晕' });
-    if (unit.status.assaultBonus) list.push({ key: 'assault', label: '下次攻击 +1', short: '+1' });
     if (unit.status.eating) list.push({ key: 'eating', label: '进食中 · 第 ' + unit.status.eating.completeRound + ' 回合完成', short: '食' });
     if (unit.status.revealedUntil && this.round <= unit.status.revealedUntil) list.push({ key: 'revealed', label: '暴露 · 第 ' + unit.status.revealedUntil + ' 回合前可见', short: '露' });
     var hiddenZone = null;
