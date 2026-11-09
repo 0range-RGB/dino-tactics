@@ -757,8 +757,12 @@ button:focus-visible, [role="button"]:focus-visible {
 .plant-charges i.spent { background: rgba(168,240,139,.18); box-shadow: none; }
 .token-layer { z-index: 4; }
 .fog-layer { z-index: 5; }
-.fog-cell { position: absolute; width: 10%; height: 10%; background: rgba(4, 12, 9, 0.93); box-shadow: inset 0 0 0 1px rgba(180,210,190,.12), inset 0 0 18px rgba(0,0,0,.7); }
-.fog-cell::after { content: "?"; position: absolute; inset: 0; display: grid; place-items: center; color: rgba(180,210,190,.2); font-size: clamp(8px,1.1vw,14px); font-weight: 700; }
+.fog-cell { position: absolute; width: 10%; height: 10%; box-shadow: inset 0 0 0 1px rgba(255,255,255,.045); }
+.fog-cell.terrain-f { background-color: rgba(9,139,74,.56); background-image: linear-gradient(rgba(7,24,26,.18),rgba(7,24,26,.18)),url('assets/terrain/woodland.png'); background-size: cover; }
+.fog-cell.terrain-s { background-color: rgba(233,231,174,.48); background-image: linear-gradient(rgba(7,24,26,.08),rgba(7,24,26,.08)),url('assets/terrain/sand.png'); background-size: cover; }
+.fog-cell.terrain-g { background-color: rgba(207,255,112,.42); background-image: linear-gradient(rgba(7,24,26,.12),rgba(7,24,26,.12)),url('assets/terrain/grass.png'); background-size: cover; }
+.fog-cell.terrain-w { background-color: rgba(52,209,241,.46); background-image: linear-gradient(rgba(7,24,26,.10),rgba(7,24,26,.10)),url('assets/terrain/shallow-water.png'); background-size: cover; }
+.fog-plant { position: absolute; inset: 0; display: grid; place-items: center; font-size: clamp(10px,1.4vw,18px); filter: drop-shadow(0 1px 2px rgba(0,0,0,.6)); }
 .move-layer { z-index: 12; }
 .effect-layer { z-index: 20; overflow: hidden; }
 .move-marker {
