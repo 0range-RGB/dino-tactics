@@ -1118,6 +1118,10 @@
       els.detailPanel.innerHTML = '<div class="detail-empty"><span class="empty-glyph">◇</span><strong>对手布阵中</strong><p>布阵阶段不会显示对手的占位与朝向，开战后公开。</p></div>';
       return;
     }
+    if (unit && g.phase === 'battle' && unit.team !== g.activeTeam && !g.isUnitVisibleTo(g.activeTeam, unit)) {
+      els.detailPanel.innerHTML = '<div class="detail-empty"><span class="empty-glyph">◇</span><strong>目标隐藏在雾中</strong><p>需要视觉格进入隐藏区或接近后才能发现。</p></div>';
+      return;
+    }
     if (!unit) {
       els.detailPanel.innerHTML = '<div class="detail-empty"><span class="empty-glyph">◇</span><strong>未选择单位</strong><p>点击棋盘上的恐龙或左侧队伍栏，查看生命、护甲、技能与状态。</p></div>';
       return;
@@ -1195,6 +1199,10 @@
     }
     if (!selected) {
       els.actionPanel.innerHTML = '<div class="action-head"><strong>行动指令</strong><span>STANDBY</span></div><div class="no-actions">选择一只己方恐龙。点击棋盘上的单位或左侧队伍栏即可选中。</div>';
+      return;
+    }
+    if (selected.team !== g.activeTeam && g.phase === 'battle' && !g.isUnitVisibleTo(g.activeTeam, selected)) {
+      els.actionPanel.innerHTML = '<div class="action-head"><strong>雾中目标</strong><span>HIDDEN</span></div><div class="no-actions">目标处于隐藏状态，无法查看详情或下达攻击指令。</div>';
       return;
     }
     if (selected.team !== g.activeTeam) {
@@ -2471,6 +2479,7 @@
   function selectUnit(id) {
     var unit = state.game.getUnit(id);
     if (!unit) return;
+    if (state.game.phase === 'battle' && unit.team !== state.game.activeTeam && !state.game.isUnitVisibleTo(state.game.activeTeam, unit)) return;
     state.selectedId = id;
     state.skillMode = null;
     if (state.game && state.game.phase === 'deploy') {
@@ -2497,6 +2506,10 @@
       unit = state.game.unitAt(x, y);
     } else {
       return;
+    }
+
+    if (unit && state.game.phase === 'battle' && unit.team !== state.game.activeTeam && !state.game.isUnitVisibleTo(state.game.activeTeam, unit)) {
+      unit = null;
     }
 
     if (state.game.phase === 'deploy') {
@@ -2756,6 +2769,15 @@
     }
   }
 
+  function canAIAttackThisTurn(unit, target) {
+    if (!unit || !target) return false;
+    var g = state.game;
+    if (E.distance(unit, target) === 1) return true;
+    return g.getReachable(unit).some(function (cell) {
+      return E.distance({ x: cell.x, y: cell.y, size: unit.size, facing: unit.facing, alive: true }, target) === 1;
+    });
+  }
+
   async function aiActUnit(unit, epoch) {
     if (!unit || !unit.alive) return;
     var g = state.game;
@@ -2777,7 +2799,7 @@
 
     var target = chooseAITarget(unit);
     var plants = SPECIES[unit.type].diet === 'herbivore' ? g.getFacingPlants(unit) : [];
-    var killNow = target && target.hp <= g.getAttack(unit);
+    var killNow = target && target.hp <= g.getAttack(unit) && canAIAttackThisTurn(unit, target);
     if (plants.length && unit.hp < unit.maxHp && unit.hp <= unit.maxHp * 0.5 && (!target || !killNow)) {
       var plant = plants[0];
       await perform(function () { return g.eatPlant(unit.id, plant.x, plant.y); });
@@ -2840,7 +2862,7 @@
     }
 
     if (unit.type === 'trike' && g.getSkillStatus(unit).ready) {
-      var threat = g.getEnemies(unit.team).some(function (e) { return E.distance(unit, e) <= 2; });
+      var threat = g.getEnemies(unit.team).filter(function (e) { return g.isUnitVisibleTo(unit.team, e); }).some(function (e) { return E.distance(unit, e) <= 2; });
       if (threat) {
         await perform(function () { return g.useSkill(unit.id); });
         return;
@@ -2937,7 +2959,7 @@
       var score = -d * 8;
       if (d <= 1) score += 58;
       if (unit.type === 'leso' && g.round >= unit.skillReadyRound && d <= 2) score += 6;
-      var enemies = g.getEnemies(unit.team);
+      var enemies = g.getEnemies(unit.team).filter(function (e) { return g.isUnitVisibleTo(unit.team, e); });
       var threats = 0;
       for (var j = 0; j < enemies.length; j++) {
         if (E.distance(cell, enemies[j]) <= 1) threats += 1;
@@ -3085,7 +3107,7 @@
         '<p>双方各有一支容量为 <b>' + E.TEAM_CAPACITY + '</b> 的恐龙军团，在 10 × 10 的方格战场上轮流行动。开局先在各自半场布阵，再进入战斗；消灭对方全部恐龙即可获胜。</p>' +
         '<div class="rule-grid">' +
           '<div class="rule-box"><strong>地图 · 地狱溪组</strong><span>深绿色为林地，黄色为沙地，浅绿色为草地，蓝色为浅水。<i class="terrain-swatch terrain-f"></i>林地 <i class="terrain-swatch terrain-s"></i>沙地 <i class="terrain-swatch terrain-g"></i>草地 <i class="terrain-swatch terrain-w"></i>浅水。地形决定可食植物的生长条件，不改变移动与攻击规则。</span></div>' +
-          '<div class="rule-box"><strong>隐藏区</strong><span>带杉树的林地格，以及生长有可食植物的草地格，具有隐藏效果。上下左右相连的隐藏格组成同一个隐藏区。己方单位任一占格位于隐藏格时，只隐藏该占格，不会隐藏整只单位；完全隐藏的单位不能被攻击或选为技能目标。当己方视觉格本身位于隐藏区时，同一隐藏区互相可见，并可揭示该视觉格周围一圈内的敌方隐藏格。隐藏单位发动攻击或受到攻击后会暴露 1 回合。</span></div>' +
+          '<div class="rule-box"><strong>隐藏区</strong><span>带杉树的林地格，以及生长有可食植物的草地格，具有隐藏效果。上下左右相连的隐藏格组成同一个隐藏区。己方单位任一占格位于隐藏格时，只隐藏该占格，不会隐藏整只单位；完全隐藏的单位不能被攻击、选为技能目标或点击查看详情。联机对敌方脱敏移动/朝向事件。当己方视觉格本身位于隐藏区时，同一隐藏区互相可见，并可揭示该视觉格周围一圈内的敌方隐藏格。隐藏单位发动攻击或受到攻击后会暴露 1 回合。</span></div>' +
           '<div class="rule-box"><strong>视觉格</strong><span>小型恐龙以自身所占格为视觉格；中型恐龙以朝向最前方的一格为视觉格；大型恐龙有左前、右前两个视觉格。选中单位时棋盘上会以金色描边显示。</span></div>' +
           '<div class="rule-box"><strong>可食植物</strong><span>开局时，距离浅水两格以内的草地有 50% 生长可食植物；带杉树的林地有 70% 生长可食植物。只有植食性恐龙（三角龙、剑龙、甲龙、勒苏维斯龙）能进食，且植物必须在朝向一格内。进食持续 1 回合：期间不能移动、攻击或使用技能，受到伤害 +20%；受到攻击会立即打断，不获得效果，植物也不会被消耗。完成进食恢复 1 点生命、消耗植物 1 次，并获得「进食完毕」：1 层持续 3 回合、行动力 +1；2 层持续 4 回合、行动力 +1，效果结束时恢复 2 点生命。植物最多被吃 2 次，吃光后本局不再生长。</span></div>' +
           '<div class="rule-box"><strong>开局布阵</strong><span>开局时双方可在本方半场任意空格放置恐龙并调整朝向，不消耗行动力。双方完成布阵后，蓝方先手进入第 1 回合。</span></div>' +
