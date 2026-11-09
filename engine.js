@@ -331,6 +331,7 @@
           eatBuff: 0,
           eatBuffUntil: 0,
           eating: null,
+          revealedUntil: 0,
           hook: null,
           hookReceived: [],
           hookEscapeRound: 0
@@ -393,6 +394,11 @@
   Game.prototype.isHiddenCell = function (x, y) {
     if (MAP.trees.some(function (cell) { return cell[0] === x && cell[1] === y; })) return true;
     return !!this.getPlantAt(x, y);
+  };
+
+  Game.prototype.isUnitInHiddenTerrain = function (unit) {
+    if (!unit || !unit.alive) return false;
+    return this.getFootprint(unit).some(function (cell) { return this.isHiddenCell(cell.x, cell.y); }, this);
   };
 
   Game.prototype.getHiddenZones = function () {
@@ -489,6 +495,10 @@
       if (!unit.alive) return;
       self.getVisionCells(unit).forEach(function (cell) {
         if (!self.isHiddenCell(cell.x, cell.y)) return;
+        // 进草：同一隐藏区互相可见。
+        var zone = self.getHiddenZoneAt(cell.x, cell.y);
+        if (zone) zone.cells.forEach(function (c) { revealed[c.x + ',' + c.y] = true; });
+        // 仍保留视觉格周围一圈的揭示。
         for (var dx = -1; dx <= 1; dx++) {
           for (var dy = -1; dy <= 1; dy++) {
             revealed[(cell.x + dx) + ',' + (cell.y + dy)] = true;
@@ -500,6 +510,7 @@
     var hidden = [];
     this.getTeamUnits(enemyTeam).forEach(function (unit) {
       if (!unit.alive) return;
+      if (unit.status.revealedUntil && self.round <= unit.status.revealedUntil) return;
       self.getFootprint(unit).forEach(function (cell) {
         var key = cell.x + ',' + cell.y;
         if (self.isHiddenCell(cell.x, cell.y) && !revealed[key]) {
@@ -1062,6 +1073,11 @@
     if (this.isLockedFromAttacking(unit, target)) return { ok: false, error: '你被尾槌压制，无法攻击这只甲龙。', events: events };
 
     this.consumeAction(unit);
+    if (this.isUnitInHiddenTerrain(unit) && !this.isUnitVisibleTo(target.team, unit)) {
+      unit.status.revealedUntil = this.round + 1;
+      this.pushLog(events, unit.name + ' 从隐藏中发动攻击，暴露了位置。', 'status');
+      events.push({ type: 'status', unitId: unit.id, status: 'revealed' });
+    }
     var def = SPECIES[unit.type];
     this.pushLog(events, unit.name + ' 攻击 ' + target.name + '。', 'attack');
     events.push({ type: 'attack', unitId: unit.id, targetId: target.id, from: { x: unit.x, y: unit.y }, to: { x: target.x, y: target.y } });
@@ -1242,6 +1258,12 @@
       sourceId: opts.source ? opts.source.id : null,
       note: notes.join('，')
     });
+
+    if (target.alive && opts.isAttack && this.isUnitInHiddenTerrain(target) && target.status.revealedUntil <= this.round) {
+      target.status.revealedUntil = this.round + 1;
+      this.pushLog(events, target.name + ' 在隐藏中被击中，位置暴露了。', 'status');
+      events.push({ type: 'status', unitId: target.id, status: 'revealed' });
+    }
 
     if (target.status.eating && opts.isAttack && target.hp > 0) {
       target.status.eating = null;
@@ -1801,6 +1823,7 @@
     if (unit.status.ankyLock) list.push({ key: 'lock', label: '被尾槌压制', short: '晕' });
     if (unit.status.assaultBonus) list.push({ key: 'assault', label: '下次攻击 +1', short: '+1' });
     if (unit.status.eating) list.push({ key: 'eating', label: '进食中 · 第 ' + unit.status.eating.completeRound + ' 回合完成', short: '食' });
+    if (unit.status.revealedUntil && this.round <= unit.status.revealedUntil) list.push({ key: 'revealed', label: '暴露 · 第 ' + unit.status.revealedUntil + ' 回合前可见', short: '露' });
     var hiddenZone = null;
     this.getFootprint(unit).forEach(function (cell) {
       if (!hiddenZone) hiddenZone = this.getHiddenZoneAt(cell.x, cell.y);
