@@ -1235,8 +1235,7 @@
     if (sourceHook) note = '钩挂中：无法移动，攻击 +2；技能不充能。持续 1 回合后可手动解除，3 回合后自动解除。';
     else if (hookStacks.length) note = '受钩挂 ' + hookStacks.length + ' 层：行动力降低，不能攻击施加者；可尝试摆脱。';
     else if (done) note = '该单位本回合已结束行动。选择其他单位，或结束回合。';
-    else if (selected.type === 'trex' && selected.turn.extraMove > 0) note = '突袭生效：行动力已增加，下一次攻击 +1，移动后仍可攻击。';
-    else if (selected.type === 'trex' && selected.status.assaultBonus) note = '突袭蓄力：下一次攻击伤害 +1。';
+    else if (selected.type === 'trex' && selected.turn.extraMove > 0) note = '突袭生效：行动力已增加，移动后仍可攻击。';
     else if (moveLeft > 0 && targets.length) note = '可移动 <b>' + moveLeft + '</b> 格；相邻敌人可直接攻击。';
     else if (moveLeft > 0) note = '可移动 <b>' + moveLeft + '</b> 格，移动后仍可攻击或发动技能。';
     else if (targets.length) note = '行动力已耗尽，仍可攻击或发动技能。';
