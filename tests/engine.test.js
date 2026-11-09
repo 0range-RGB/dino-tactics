@@ -11,7 +11,7 @@ E.SPECIES.dummy = {
   passiveName: '无', passiveDesc: '', skillType: 'active'
 };
 assert.strictEqual(E.BOARD_SIZE, 10, '测试套件版本不匹配：请确认 engine.js 是 10×10 版本');
-console.log('\n测试套件：10×10 棋盘 · 57 项');
+console.log('\n测试套件：10×10 棋盘 · 58 项');
 
 let passed = 0;
 function test(name, fn) {
@@ -124,6 +124,7 @@ test('开局布阵阶段可自由放置并对半场校验', () => {
 
 test('布阵阶段多格单位可整体平移 1 格', () => {
   const g = new E.Game({ blueTeam: ['trex', 'leso'], redTeam: ['anky'], deployOnly: true });
+  g.plants = [];
   const rex = g.getUnit('blue-1');
   const le = g.getUnit('blue-2');
   place(rex, 1, 5, 'N');
@@ -136,6 +137,7 @@ test('布阵阶段多格单位可整体平移 1 格', () => {
   assert.strictEqual(g.deployMove(le.id, rex.x, rex.y).ok, false);
 
   const g2 = new E.Game({ blueTeam: ['dummy'], redTeam: ['leso'], deployOnly: true });
+  g2.plants = [];
   const tr = g2.getUnit('blue-1');
   const cells = g2.getDeployCells(tr);
   [[0, -1], [0, 1], [-1, 0], [1, 0]].forEach(([dx, dy]) => {
@@ -1112,6 +1114,14 @@ test('隐藏单位攻击后暴露位置', () => {
   assert.ok(g.attack(attacker.id, target.id).ok);
   assert.ok(attacker.status.revealedUntil >= g.round);
   assert.strictEqual(g.isUnitVisibleTo('red', attacker), true);
+});
+
+test('布阵阶段不能把单位放在植物格', () => {
+  const g = new E.Game({ blueTeam: ['velo'], redTeam: ['velo'], deployOnly: true, rng: () => 1 });
+  g.plants = [{ id: 'deploy-plant', x: 5, y: 5, kind: 'grass', charges: 2 }];
+  const u = g.getUnit('blue-1');
+  assert.strictEqual(g.deployMove(u.id, 5, 5).ok, false);
+  assert.strictEqual(g.getDeployCells(u).some((c) => c.x === 5 && c.y === 5), false);
 });
 
 console.log('\n通过 ' + passed + ' 项测试' + (process.exitCode ? '，存在失败' : '。'));
