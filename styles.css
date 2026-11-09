@@ -571,6 +571,10 @@ button:focus-visible, [role="button"]:focus-visible {
 .status-chip.hook { color: #d8ef86; background: rgba(198,227,107,.12); }
 .status-chip.hook-received { color: #ffd08a; background: rgba(255,170,80,.12); }
 .status-chip.hook-cooldown { color: #d0b9ff; background: rgba(169,136,255,.12); }
+.status-chip.eating { color: #f0cf7a; background: rgba(217,179,91,.14); }
+.status-chip.eat-buff { color: #9fe08a; background: rgba(126,201,107,.14); }
+.status-chip.hidden-zone { color: #bce8c9; background: rgba(57,107,77,.28); }
+.status-chip.revealed { color: #ffc09a; background: rgba(224,138,91,.18); }
 .empty-roster { color: var(--muted-2); font-size: 10px; padding: 10px; text-align: center; }
 .secret-roster {
   display: flex; flex-direction: column; gap: 4px; padding: 12px 10px; margin: 4px;
