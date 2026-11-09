@@ -1730,11 +1730,24 @@
   }
 
 
+  function plantUnderFootprint(unit, x, y, facing) {
+    return state.game.getFootprint(unit, x, y, facing || unit.facing).some(function (cell) {
+      return !!state.game.getPlantAt(cell.x, cell.y);
+    });
+  }
+
   function confirmDeployPreview() {
     if (!state.game || state.game.phase !== 'deploy' || state.busy) return;
     var unit = state.game.getUnit(state.selectedId);
     var p = state.deployPreview;
     if (!unit || !canDeployUnit(unit) || !p) return;
+    if (plantUnderFootprint(unit, p.x, p.y, unit.facing)) {
+      state.deployPreview = null;
+      state.deployHover = null;
+      renderAll();
+      toast('植物格不能放置单位');
+      return;
+    }
     var cells = state.game.getDeployCells(unit);
     if (!cells.some(function (c) { return c.x === p.x && c.y === p.y; })) {
       state.deployPreview = null;
@@ -2515,6 +2528,10 @@
     if (state.game.phase === 'deploy') {
       var deploySelected = state.game.getUnit(state.selectedId);
       if (deploySelected && canDeployUnit(deploySelected) && !state.busy) {
+        if (plantUnderFootprint(deploySelected, x, y, deploySelected.facing)) {
+          toast('植物格不能放置单位');
+          return;
+        }
         var deployCells = state.game.getDeployCells(deploySelected);
         var canPlace = deployCells.some(function (c) { return c.x === x && c.y === y; });
         if (canPlace) {
