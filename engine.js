@@ -550,8 +550,9 @@
         if (x === unit.x && y === unit.y) continue;
         var footprint = footprintCells(unit, x, y, unit.facing);
         var insideHalf = footprint.every(function (c) { return c.y >= halfMin && c.y <= halfMax; });
-        // 布阵时也允许整只恐龙平移 1 格；新占位可以与旧占位重叠，但不能与其他单位重叠。
-        if (insideHalf && this.canPlaceUnit(unit, x, y, unit.facing, true)) {
+        var hasPlant = footprint.some(function (c) { return !!this.getPlantAt(c.x, c.y); }, this);
+        // 布阵时也允许整只恐龙平移 1 格；新占位可以与旧占位重叠，但不能与其他单位或植物重叠。
+        if (insideHalf && !hasPlant && this.canPlaceUnit(unit, x, y, unit.facing, true)) {
           cells.push({ x: x, y: y });
         }
       }
@@ -571,6 +572,7 @@
     if (!footprint.every(function (c) { return c.y >= halfMin && c.y <= halfMax; })) {
       return { ok: false, error: '整只恐龙都必须放在本方半场。', events: events };
     }
+    if (footprint.some(function (c) { return !!this.getPlantAt(c.x, c.y); }, this)) return { ok: false, error: '该位置有植物，不能放置。', events: events };
     if (!this.canPlaceUnit(unit, x, y, unit.facing, true)) return { ok: false, error: '该位置空间不足或已被占用。', events: events };
     var from = { x: unit.x, y: unit.y };
     unit.x = x;
@@ -591,6 +593,7 @@
     if (!footprint.every(function (c) { return c.y >= halfMin && c.y <= halfMax; })) {
       return { ok: false, error: '转向后身体会越出本方半场。', events: events };
     }
+    if (footprint.some(function (c) { return !!this.getPlantAt(c.x, c.y); }, this)) return { ok: false, error: '转向会压到植物。', events: events };
     if (!this.canPlaceUnit(unit, unit.x, unit.y, facing, true)) return { ok: false, error: '周围空间不足，无法转向。', events: events };
     if (unit.facing !== facing) {
       unit.facing = facing;
@@ -640,8 +643,8 @@
     return null;
   };
 
-  Game.prototype.pushLog = function (events, text, tone) {
-    events.push({ type: 'log', text: text, tone: tone || 'system', round: this.round });
+  Game.prototype.pushLog = function (events, text, tone, unitId) {
+    events.push({ type: 'log', text: text, tone: tone || 'system', round: this.round, unitId: unitId || null });
   };
 
   Game.prototype.startTeamTurn = function (team, events, initial) {
@@ -1493,7 +1496,7 @@
     unit.y = y;
     unit.turn.moveLeft -= dest.dist;
     unit.turn.moved = true;
-    this.pushLog(events, unit.name + ' 移动到 (' + (x + 1) + ', ' + (y + 1) + ')。', 'move');
+    this.pushLog(events, unit.name + ' 移动了。', 'move', unit.id);
     events.push({ type: 'move', unitId: unit.id, from: from, to: { x: x, y: y }, path: dest.path });
     this.followHookTarget(unit, from.x, from.y, dest.path, events);
     return { ok: true, events: events };
