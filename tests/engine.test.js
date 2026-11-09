@@ -1116,12 +1116,13 @@ test('隐藏单位攻击后暴露位置', () => {
   assert.strictEqual(g.isUnitVisibleTo('red', attacker), true);
 });
 
-test('布阵阶段不能把单位放在植物格', () => {
+test('布阵阶段允许把单位放在植物格', () => {
   const g = new E.Game({ blueTeam: ['velo'], redTeam: ['velo'], deployOnly: true, rng: () => 1 });
   g.plants = [{ id: 'deploy-plant', x: 5, y: 5, kind: 'grass', charges: 2 }];
   const u = g.getUnit('blue-1');
-  assert.strictEqual(g.deployMove(u.id, 5, 5).ok, false);
-  assert.strictEqual(g.getDeployCells(u).some((c) => c.x === 5 && c.y === 5), false);
+  assert.ok(g.getDeployCells(u).some((c) => c.x === 5 && c.y === 5));
+  assert.strictEqual(g.deployMove(u.id, 5, 5).ok, true);
+  assert.ok(g.getPlantAt(5, 5));
 });
 
 test('攻击性技能也会暴露隐藏施法者', () => {
@@ -1152,13 +1153,14 @@ test('攻击性技能也会暴露隐藏施法者', () => {
   assert.strictEqual(g2.isUnitVisibleTo('red', leso), true);
 });
 
-test('多格单位的任一占格有植物时也不能布阵', () => {
+test('布阵阶段允许把多格单位放在植物格上', () => {
   const g = new E.Game({ blueTeam: ['trike'], redTeam: ['velo'], deployOnly: true, rng: () => 1 });
-  g.plants = [{ id: 'wide-cover', x: 7, y: 0, kind: 'grass', charges: 2 }];
+  g.plants = [{ id: 'wide-cover', x: 7, y: 6, kind: 'grass', charges: 2 }];
   const u = g.getUnit('blue-1');
-  place(u, 8, 0, 'E');
-  assert.strictEqual(g.deployMove(u.id, 8, 0).ok, false);
-  assert.strictEqual(g.getDeployCells(u).some((c) => c.x === 8 && c.y === 0), false);
+  place(u, 1, 6, 'E');
+  assert.ok(g.getDeployCells(u).some((c) => c.x === 8 && c.y === 6));
+  assert.strictEqual(g.deployMove(u.id, 8, 6).ok, true);
+  assert.ok(g.getPlantAt(7, 6));
 });
 
 console.log('\n通过 ' + passed + ' 项测试' + (process.exitCode ? '，存在失败' : '。'));
