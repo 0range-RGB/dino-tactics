@@ -11,7 +11,7 @@ E.SPECIES.dummy = {
   passiveName: '无', passiveDesc: '', skillType: 'active'
 };
 assert.strictEqual(E.BOARD_SIZE, 10, '测试套件版本不匹配：请确认 engine.js 是 10×10 版本');
-console.log('\n测试套件：10×10 棋盘 · 58 项');
+console.log('\n测试套件：10×10 棋盘 · 59 项');
 
 let passed = 0;
 function test(name, fn) {
@@ -1122,6 +1122,34 @@ test('布阵阶段不能把单位放在植物格', () => {
   const u = g.getUnit('blue-1');
   assert.strictEqual(g.deployMove(u.id, 5, 5).ok, false);
   assert.strictEqual(g.getDeployCells(u).some((c) => c.x === 5 && c.y === 5), false);
+});
+
+test('攻击性技能也会暴露隐藏施法者', () => {
+  const g = new E.Game({ blueTeam: ['anky'], redTeam: ['velo'], deployOnly: true, rng: () => 1 });
+  g.plants = [{ id: 'anky-cover', x: 7, y: 0, kind: 'grass', charges: 2 }];
+  const anky = g.getUnit('blue-1');
+  const target = g.getUnit('red-2');
+  place(anky, 8, 0, 'E');
+  place(target, 9, 0, 'W');
+  g.phase = 'battle'; g.activeTeam = 'blue';
+  anky.skillReadyRound = 1;
+  assert.strictEqual(g.isUnitVisibleTo('red', anky), false);
+  assert.ok(g.useSkill(anky.id, target.id).ok);
+  assert.strictEqual(anky.status.revealedUntil, g.round);
+  assert.strictEqual(g.isUnitVisibleTo('red', anky), true);
+
+  const g2 = new E.Game({ blueTeam: ['leso'], redTeam: ['velo'], deployOnly: true, rng: () => 1 });
+  g2.plants = [{ id: 'leso-cover', x: 8, y: 1, kind: 'grass', charges: 2 }];
+  const leso = g2.getUnit('blue-1');
+  const victim = g2.getUnit('red-2');
+  place(leso, 8, 0, 'N');
+  place(victim, 9, 0, 'W');
+  g2.phase = 'battle'; g2.activeTeam = 'blue';
+  leso.skillReadyRound = 1;
+  assert.strictEqual(g2.isUnitVisibleTo('red', leso), false);
+  assert.ok(g2.useSkill(leso.id).ok);
+  assert.strictEqual(leso.status.revealedUntil, g2.round);
+  assert.strictEqual(g2.isUnitVisibleTo('red', leso), true);
 });
 
 console.log('\n通过 ' + passed + ' 项测试' + (process.exitCode ? '，存在失败' : '。'));
