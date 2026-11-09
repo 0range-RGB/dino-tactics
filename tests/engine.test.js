@@ -11,7 +11,7 @@ E.SPECIES.dummy = {
   passiveName: '无', passiveDesc: '', skillType: 'active'
 };
 assert.strictEqual(E.BOARD_SIZE, 10, '测试套件版本不匹配：请确认 engine.js 是 10×10 版本');
-console.log('\n测试套件：10×10 棋盘 · 59 项');
+console.log('\n测试套件：10×10 棋盘 · 60 项');
 
 let passed = 0;
 function test(name, fn) {
@@ -1150,6 +1150,15 @@ test('攻击性技能也会暴露隐藏施法者', () => {
   assert.ok(g2.useSkill(leso.id).ok);
   assert.strictEqual(leso.status.revealedUntil, g2.round);
   assert.strictEqual(g2.isUnitVisibleTo('red', leso), true);
+});
+
+test('多格单位的任一占格有植物时也不能布阵', () => {
+  const g = new E.Game({ blueTeam: ['trike'], redTeam: ['velo'], deployOnly: true, rng: () => 1 });
+  g.plants = [{ id: 'wide-cover', x: 7, y: 0, kind: 'grass', charges: 2 }];
+  const u = g.getUnit('blue-1');
+  place(u, 8, 0, 'E');
+  assert.strictEqual(g.deployMove(u.id, 8, 0).ok, false);
+  assert.strictEqual(g.getDeployCells(u).some((c) => c.x === 8 && c.y === 0), false);
 });
 
 console.log('\n通过 ' + passed + ' 项测试' + (process.exitCode ? '，存在失败' : '。'));
