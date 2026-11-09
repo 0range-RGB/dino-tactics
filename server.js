@@ -153,10 +153,23 @@ function snapshotForTeam(game, team) {
 }
 
 function eventsForTeam(room, team, events) {
-  if (!room.game || room.game.phase !== 'deploy') return events || [];
-  const ownIds = new Set(room.game.getTeamUnits(team).map((unit) => unit.id));
-  // 布阵阶段过滤掉对手的移动/转向事件，避免从事件坐标反推布局。
-  return (events || []).filter((ev) => !ev.unitId || ownIds.has(ev.unitId));
+  if (!room.game) return events || [];
+  const game = room.game;
+  if (game.phase === 'deploy') {
+    const ownIds = new Set(game.getTeamUnits(team).map((unit) => unit.id));
+    // 布阵阶段过滤掉对手的移动/转向事件，避免从事件坐标反推布局。
+    return (events || []).filter((ev) => !ev.unitId || ownIds.has(ev.unitId));
+  }
+  // 战斗中，隐藏单位的坐标与路径不应通过事件泄露。
+  return (events || []).map((ev) => {
+    const uid = ev.unitId || ev.sourceId;
+    const unit = uid ? game.getUnit(uid) : null;
+    if (!unit || unit.team === team || game.isUnitVisibleTo(team, unit)) return ev;
+    if (ev.type === 'move') return { type: 'move', unitId: unit.id, hidden: true };
+    if (ev.type === 'rotate' || ev.type === 'facing') return { type: 'facing', unitId: unit.id, hidden: true };
+    if (ev.type === 'log') return Object.assign({}, ev, { text: '雾中有恐龙移动。' });
+    return ev;
+  });
 }
 
 function broadcastState(room, events, actorTeam) {
