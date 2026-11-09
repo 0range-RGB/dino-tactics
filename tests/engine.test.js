@@ -11,7 +11,7 @@ E.SPECIES.dummy = {
   passiveName: '无', passiveDesc: '', skillType: 'active'
 };
 assert.strictEqual(E.BOARD_SIZE, 10, '测试套件版本不匹配：请确认 engine.js 是 10×10 版本');
-console.log('\n测试套件：10×10 棋盘 · 57 项');
+console.log('\n测试套件：10×10 棋盘 · 58 项');
 
 let passed = 0;
 function test(name, fn) {
@@ -1084,7 +1084,7 @@ test('隐藏格不被敌方看见，视觉格进入隐藏区后揭示周围', ()
   g.plants = [];
   const viewer = g.getUnit('blue-1');
   const target = g.getUnit('red-2');
-  place(viewer, 4, 5, 'N');
+  place(viewer, 0, 0, 'N');
   place(target, 3, 0, 'N');
   g.phase = 'battle';
   let hidden = g.getHiddenCellsForTeam('blue');
@@ -1122,6 +1122,20 @@ test('隐藏单位不能被攻击，视觉揭示后可以攻击', () => {
   place(attacker, 3, 6, 'N');
   assert.strictEqual(g.getAttackTargets(attacker).some((u) => u.id === target.id), true);
   assert.strictEqual(g.attack(attacker.id, target.id).ok, true);
+});
+
+test('隐藏单位攻击后暴露位置', () => {
+  const g = new E.Game({ blueTeam: ['velo'], redTeam: ['velo'], deployOnly: true, rng: () => 1 });
+  g.plants = [];
+  const attacker = g.getUnit('blue-1');
+  const target = g.getUnit('red-2');
+  place(attacker, 8, 0, 'E');
+  place(target, 9, 0, 'W');
+  g.phase = 'battle'; g.activeTeam = 'blue';
+  assert.strictEqual(g.isUnitVisibleTo('red', attacker), false);
+  assert.ok(g.attack(attacker.id, target.id).ok);
+  assert.ok(attacker.status.revealedUntil >= g.round);
+  assert.strictEqual(g.isUnitVisibleTo('red', attacker), true);
 });
 
 console.log('\n通过 ' + passed + ' 项测试' + (process.exitCode ? '，存在失败' : '。'));
