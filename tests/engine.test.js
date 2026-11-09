@@ -11,7 +11,7 @@ E.SPECIES.dummy = {
   passiveName: '无', passiveDesc: '', skillType: 'active'
 };
 assert.strictEqual(E.BOARD_SIZE, 10, '测试套件版本不匹配：请确认 engine.js 是 10×10 版本');
-console.log('\n测试套件：10×10 棋盘 · 58 项');
+console.log('\n测试套件：10×10 棋盘 · 57 项');
 
 let passed = 0;
 function test(name, fn) {
@@ -361,7 +361,7 @@ test('剑龙反击形态穿刺造成双倍伤害并永久削弱', () => {
   assert.strictEqual(g.getAttack(s), 2);
 });
 
-test('霸王龙突袭 +2 行动力且仍可攻击', () => {
+test('霸王龙突袭 +2 行动力且不再增加攻击力', () => {
   const g = make(['dummy'], ['trex']);
   const rex = g.getUnit('red-2');
   const t = g.getUnit('blue-1');
@@ -371,39 +371,15 @@ test('霸王龙突袭 +2 行动力且仍可攻击', () => {
   assert.strictEqual(rex.armor, 2);
   toRed(g);
   assert.ok(g.useSkill(rex.id).ok);
-  assert.strictEqual(rex.status.assaultBonus, 1);
   assert.strictEqual(rex.turn.moveLeft, 3);
   assert.ok(g.moveUnit(rex.id, 4, 2).ok);
   assert.strictEqual(rex.turn.moveLeft, 2);
   const res = g.attack(rex.id, t.id);
   assert.ok(res.ok, res.error);
-  assert.strictEqual(t.hp, 2);
+  assert.strictEqual(t.hp, 3);
   assert.strictEqual(t.armor, 0);
-  assert.strictEqual(rex.status.assaultBonus, 0);
   assert.strictEqual(rex.turn.done, true);
   assert.strictEqual(rex.skillReadyRound, 8);
-});
-
-test('突袭攻击加成保留到下一次攻击', () => {
-  const g = make(['dummy'], ['trex']);
-  const rex = g.getUnit('red-2');
-  const t = g.getUnit('blue-1');
-  place(rex, 3, 2, 'S');
-  place(t, 6, 4, 'N');
-  g.round = 4; rex.skillReadyRound = 4;
-  toRed(g);
-  assert.ok(g.useSkill(rex.id).ok);
-  assert.strictEqual(rex.status.assaultBonus, 1);
-  // 本回合不攻击，结束红方与蓝方回合后再攻击。
-  toNextRound(g);
-  toNextRound(g);
-  assert.strictEqual(g.activeTeam, 'red');
-  assert.strictEqual(rex.status.assaultBonus, 1);
-  assert.ok(g.moveUnit(rex.id, 4, 2).ok);
-  const res = g.attack(rex.id, t.id);
-  assert.ok(res.ok, res.error);
-  assert.strictEqual(t.hp, 2);
-  assert.strictEqual(rex.status.assaultBonus, 0);
 });
 
 console.log('\n吞食');
