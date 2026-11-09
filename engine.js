@@ -541,6 +541,7 @@
   Game.prototype.canPlaceUnit = function (unit, x, y, facing, ignoreSelf) {
     if (!unit || !unit.alive) return false;
     var cells = footprintCells(unit, x, y, facing || unit.facing);
+    if (this.phase === 'deploy' && this.plants && cells.some(function (cell) { return !!this.getPlantAt(cell.x, cell.y); }, this)) return false;
     for (var i = 0; i < cells.length; i++) {
       if (!inBoard(cells[i].x, cells[i].y)) return false;
       var other = this.unitAt(cells[i].x, cells[i].y, ignoreSelf ? unit.id : null);
@@ -614,6 +615,10 @@
   Game.prototype.beginBattle = function () {
     var events = [];
     if (this.phase !== 'deploy') return { ok: false, error: '当前不是布阵阶段。', events: events };
+    var plantOverlap = this.units.some(function (unit) {
+      return unit.alive && this.getFootprint(unit).some(function (cell) { return !!this.getPlantAt(cell.x, cell.y); }, this);
+    }, this);
+    if (plantOverlap) return { ok: false, error: '有单位位于植物格，请移开后再开始战斗。', events: events };
     this.phase = 'battle';
     this.round = 1;
     this.activeTeam = 'blue';
