@@ -541,7 +541,6 @@
   Game.prototype.canPlaceUnit = function (unit, x, y, facing, ignoreSelf) {
     if (!unit || !unit.alive) return false;
     var cells = footprintCells(unit, x, y, facing || unit.facing);
-    if (this.phase === 'deploy' && this.plants && cells.some(function (cell) { return !!this.getPlantAt(cell.x, cell.y); }, this)) return false;
     for (var i = 0; i < cells.length; i++) {
       if (!inBoard(cells[i].x, cells[i].y)) return false;
       var other = this.unitAt(cells[i].x, cells[i].y, ignoreSelf ? unit.id : null);
@@ -560,9 +559,8 @@
         if (x === unit.x && y === unit.y) continue;
         var footprint = footprintCells(unit, x, y, unit.facing);
         var insideHalf = footprint.every(function (c) { return c.y >= halfMin && c.y <= halfMax; });
-        var hasPlant = footprint.some(function (c) { return !!this.getPlantAt(c.x, c.y); }, this);
-        // 布阵时也允许整只恐龙平移 1 格；新占位可以与旧占位重叠，但不能与其他单位或植物重叠。
-        if (insideHalf && !hasPlant && this.canPlaceUnit(unit, x, y, unit.facing, true)) {
+        // 布阵时也允许整只恐龙平移 1 格；新占位可以与旧占位重叠，但不能与其他单位重叠。
+        if (insideHalf && this.canPlaceUnit(unit, x, y, unit.facing, true)) {
           cells.push({ x: x, y: y });
         }
       }
@@ -582,7 +580,6 @@
     if (!footprint.every(function (c) { return c.y >= halfMin && c.y <= halfMax; })) {
       return { ok: false, error: '整只恐龙都必须放在本方半场。', events: events };
     }
-    if (footprint.some(function (c) { return !!this.getPlantAt(c.x, c.y); }, this)) return { ok: false, error: '该位置有植物，不能放置。', events: events };
     if (!this.canPlaceUnit(unit, x, y, unit.facing, true)) return { ok: false, error: '该位置空间不足或已被占用。', events: events };
     var from = { x: unit.x, y: unit.y };
     unit.x = x;
@@ -603,7 +600,6 @@
     if (!footprint.every(function (c) { return c.y >= halfMin && c.y <= halfMax; })) {
       return { ok: false, error: '转向后身体会越出本方半场。', events: events };
     }
-    if (footprint.some(function (c) { return !!this.getPlantAt(c.x, c.y); }, this)) return { ok: false, error: '转向会压到植物。', events: events };
     if (!this.canPlaceUnit(unit, unit.x, unit.y, facing, true)) return { ok: false, error: '周围空间不足，无法转向。', events: events };
     if (unit.facing !== facing) {
       unit.facing = facing;
@@ -615,10 +611,6 @@
   Game.prototype.beginBattle = function () {
     var events = [];
     if (this.phase !== 'deploy') return { ok: false, error: '当前不是布阵阶段。', events: events };
-    var plantOverlap = this.units.some(function (unit) {
-      return unit.alive && this.getFootprint(unit).some(function (cell) { return !!this.getPlantAt(cell.x, cell.y); }, this);
-    }, this);
-    if (plantOverlap) return { ok: false, error: '有单位位于植物格，请移开后再开始战斗。', events: events };
     this.phase = 'battle';
     this.round = 1;
     this.activeTeam = 'blue';
