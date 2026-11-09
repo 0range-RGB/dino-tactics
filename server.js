@@ -166,6 +166,7 @@ function eventsForTeam(room, team, events) {
     const unit = uid ? game.getUnit(uid) : null;
     if (!unit || unit.team === team || game.isUnitVisibleTo(team, unit)) return ev;
     if (ev.type === 'move') return { type: 'move', unitId: unit.id, hidden: true };
+    if (ev.type === 'skill') return { type: 'skill', unitId: unit.id, hidden: true };
     if (ev.type === 'rotate' || ev.type === 'facing') return { type: 'facing', unitId: unit.id, hidden: true };
     if (ev.type === 'log') return Object.assign({}, ev, { text: '雾中有恐龙移动。' });
     return ev;
