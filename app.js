@@ -27,6 +27,7 @@
     anky: '<svg viewBox="0 0 64 64" aria-hidden="true"><path fill="currentColor" d="M5 48c1-6 5-9 11-10l10-7 10 3 6-2 6 5 5 1 5 4-4 4-1 7-7 1-3-5-13 4-6 7-6-1 3-8-8 1z"/><path fill="currentColor" d="M4 50c-1-3 1-6 4-7 3-1 5 1 4 4-1 2-5 4-8 3z"/><path fill="currentColor" opacity=".7" d="M24 33l4-5 4 5zM33 32l4-5 4 5zM42 33l4-5 4 5z"/><path fill="currentColor" d="M48 42l5-1-1 7-5 1z" opacity=".65"/><circle cx="40" cy="37" r="1.4" fill="#081310"/></svg>',
     velo: '<svg viewBox="0 0 64 64" aria-hidden="true"><path fill="currentColor" d="M7 47c8-1 14-5 18-11l-2-8 4-9 7 2-2 10 7 6 12 3-1 8-15-1-5 9-6-1 2-8-13 8-6-2 4-8-7 1z"/><path fill="currentColor" d="M31 20l-3-10 7 6 6-4-2 10z" opacity=".6"/><path fill="currentColor" d="M43 45l6 2-2 8-5-1zM47 40l4 3-4 2z" opacity=".8"/><circle cx="34" cy="18" r="1.4" fill="#081310"/></svg>'
   };
+  DINO_SVG.allo = '<svg viewBox="0 0 64 64" aria-hidden="true"><path fill="currentColor" d="M6 48c7-1 12-5 15-11l4-9 9-5 9 3 7-4 6 4-4 5 3 5-7 4-3 10-6-1 1-8-8 5-3 7-6-1 3-9-11-2-7 7-6-1 4-6-5-3z"/><path fill="currentColor" opacity=".55" d="M31 23l5-2 4 2-3 3zM38 33l4 1-2 3z"/></svg>';
 
   var state = {
     game: null,
@@ -1095,7 +1096,7 @@
         var label = first.short;
         if (first.key === 'bleed') label = '血' + unit.status.bleed.length;
         if (first.key === 'devour' || first.key === 'devour-pause') label = '食';
-        var badgeClass = first.key === 'bleed' ? 'bleed' : first.key === 'guard' ? 'guard' : first.key === 'devour' || first.key === 'devour-pause' ? 'devour' : first.key === 'assault' ? 'assault' : first.key === 'hook' ? 'hook' : first.key === 'hook-received' ? 'hook-received' : first.key === 'hook-cooldown' ? 'hook-cooldown' : first.key === 'eat-buff' ? 'eat-buff' : first.key === 'eating' ? 'eating' : first.key === 'hidden-zone' ? 'hidden-zone' : first.key === 'revealed' ? 'revealed' : '';
+        var badgeClass = first.key === 'bleed' ? 'bleed' : first.key === 'guard' ? 'guard' : first.key === 'devour' || first.key === 'devour-pause' ? 'devour' : first.key === 'assault' ? 'assault' : first.key === 'hook' ? 'hook' : first.key === 'hook-received' ? 'hook-received' : first.key === 'hook-cooldown' ? 'hook-cooldown' : first.key === 'eat-buff' ? 'eat-buff' : first.key === 'eating' ? 'eating' : first.key === 'hidden-zone' ? 'hidden-zone' : first.key === 'revealed' ? 'revealed' : first.key === 'allo-jaw' ? 'allo-jaw' : '';
         badge = '<span class="token-status ' + badgeClass + '">' + label + '</span>';
       }
       var icon = dinoSvg(unit.type);
@@ -2839,6 +2840,12 @@
 
     if (unit.type === 'trex' && g.getSkillStatus(unit).ready) {
       var tRexResult = await perform(function () { return g.useSkill(unit.id); });
+      if (!unit.alive || state.game.phase !== 'battle') return;
+      if (unit.turn.done) return;
+    }
+
+    if (unit.type === 'allo' && g.getSkillStatus(unit).ready) {
+      await perform(function () { return g.useSkill(unit.id); });
       if (!unit.alive || state.game.phase !== 'battle') return;
       if (unit.turn.done) return;
     }
