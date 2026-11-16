@@ -155,6 +155,27 @@
       passiveDesc: '护甲存在时，受到的伤害降低 15%；护甲受到攻击时，攻击者受到 1 点伤害。',
       skillType: 'active'
     },
+    allo: {
+      type: 'allo',
+      diet: 'carnivore',
+      name: '异特龙',
+      latin: 'Allosaurus',
+      size: 4,
+      role: '裂甲猎手',
+      tags: ['上颚撞刺', '春风赐生', '流血'],
+      hp: 10,
+      armor: 1,
+      attack: 5,
+      move: 3,
+      skillCd: 2,
+      accent: '#d46b4f',
+      emblem: '颚',
+      skillName: '上颚撞刺',
+      skillDesc: '下一次成功造成伤害的攻击会附加 1 层流血；若目标原本已带有流血，这次攻击伤害 +1，并使流血叠加到 2 层。发动后仍可移动和攻击。',
+      passiveName: '春风赐生',
+      passiveDesc: '生命 ≥7 时每回合恢复 1 点；生命 4–6 时每 2 回合恢复 1 点；生命 1–3 时每 3 回合恢复 1 点。',
+      skillType: 'active'
+    },
     velo: {
       type: 'velo',
       diet: 'carnivore',
@@ -178,7 +199,7 @@
     }
   };
 
-  var SPECIES_ORDER = ['trike', 'trex', 'leso', 'stego', 'anky', 'velo'];
+  var SPECIES_ORDER = ['trike', 'trex', 'leso', 'stego', 'anky', 'velo', 'allo'];
 
   var HOOK_MAX_STACKS = { small: 2, medium: 3 };
   var HOOK_ESCAPE_RANGE = { small: [0.25, 0.45], medium: [0.45, 0.75] };
@@ -331,6 +352,9 @@
           eatBuffUntil: 0,
           eating: null,
           revealedUntil: 0,
+          alloJaw: false,
+          regenCounter: 0,
+          regenTier: 0,
           hook: null,
           hookReceived: [],
           hookEscapeRound: 0
@@ -765,6 +789,11 @@
 
     this.units.forEach(function (unit) {
       if (!unit.alive || self.phase !== 'battle') return;
+      self.applyAllosaurusRegen(unit, events);
+    });
+
+    this.units.forEach(function (unit) {
+      if (!unit.alive || self.phase !== 'battle') return;
       self.checkNaturalRecovery(unit, events);
     });
 
@@ -802,6 +831,23 @@
     this.round += 1;
     events.push({ type: 'round', round: this.round });
     this.startTeamTurn('blue', events);
+  };
+
+  Game.prototype.applyAllosaurusRegen = function (unit, events) {
+    if (!unit || !unit.alive || unit.type !== 'allo') return;
+    var interval = unit.hp >= 7 ? 1 : unit.hp >= 4 ? 2 : 3;
+    if (unit.status.regenTier !== interval) {
+      unit.status.regenTier = interval;
+      unit.status.regenCounter = 0;
+    }
+    unit.status.regenCounter = (unit.status.regenCounter || 0) + 1;
+    if (unit.status.regenCounter < interval) return;
+    unit.status.regenCounter = 0;
+    var healed = this.healUnit(unit, 1, events, '春风赐生');
+    if (healed > 0) {
+      this.pushLog(events, unit.name + ' 的「春风赐生」恢复 1 点生命。', 'heal');
+      events.push({ type: 'status', unitId: unit.id, status: 'spring-heal' });
+    }
   };
 
   Game.prototype.checkNaturalRecovery = function (unit, events) {
@@ -936,6 +982,8 @@
       if (this.isFormActive(unit)) { result.reason = '反击形态已开启'; return result; }
     } else if (unit.type === 'trike') {
       if (unit.status.guard) { result.reason = '物莫能陷已经处于待发状态'; return result; }
+    } else if (unit.type === 'allo') {
+      if (unit.status.alloJaw) { result.reason = '上颚撞刺已经处于待发状态'; return result; }
     }
 
     result.ready = true;
@@ -1013,6 +1061,12 @@
       unit.skillReadyRound = this.round + def.skillCd + 1;
       this.consumeAction(unit);
       this.revealHiddenAttacker(unit, unit.team === 'blue' ? 'red' : 'blue', events);
+    } else if (unit.type === 'allo') {
+      unit.turn.skillUsed = true;
+      unit.skillReadyRound = this.round + def.skillCd + 1;
+      unit.status.alloJaw = true;
+      this.pushLog(events, unit.name + ' 蓄势上颚撞刺：下一次成功造成伤害的攻击会附加流血。', 'status');
+      events.push({ type: 'status', unitId: unit.id, status: 'allo-jaw' });
     } else if (unit.type === 'anky') {
       unit.turn.skillUsed = true;
       unit.skillReadyRound = this.round + def.skillCd + 1;
@@ -1089,6 +1143,12 @@
     events.push({ type: 'attack', unitId: unit.id, targetId: target.id, from: { x: unit.x, y: unit.y }, to: { x: target.x, y: target.y } });
 
     var raw = this.getAttack(unit);
+    var alloJaw = unit.type === 'allo' && unit.status.alloJaw;
+    if (alloJaw && target.status.bleed.length >= 1) {
+      raw += 1;
+      this.pushLog(events, '上颚撞刺撕开已有伤口：本次伤害 +1，并将流血叠加到 2 层。', 'skill');
+      events.push({ type: 'status', unitId: unit.id, status: 'allo-jaw-bonus' });
+    }
     if (unit.type === 'velo' && unit.status.hook) {
       raw += 2;
       this.pushLog(events, unit.name + ' 处于钩挂状态，攻击 +2。', 'hook');
@@ -1112,6 +1172,12 @@
     }, events);
 
     if (!res.blocked) {
+      if (alloJaw && res.applied > 0) {
+        unit.status.alloJaw = false;
+        if (target.alive) this.addBleed(target, unit, events);
+        this.pushLog(events, '上颚撞刺命中：' + target.name + ' 获得 1 层流血。', 'skill');
+        events.push({ type: 'status', unitId: unit.id, status: 'allo-jaw-used' });
+      }
       if (formAtHit && target.alive && unit.alive && this.rng() < 0.25) {
         this.addBleed(target, unit, events);
       }
@@ -1821,6 +1887,7 @@
     if (this.isFormActive(unit)) list.push({ key: 'form', label: '反击形态', short: '刃' });
     if (unit.status.ankyLock) list.push({ key: 'lock', label: '被尾槌压制', short: '晕' });
     if (unit.status.eating) list.push({ key: 'eating', label: '进食中 · 第 ' + unit.status.eating.completeRound + ' 回合完成', short: '食' });
+    if (unit.status.alloJaw) list.push({ key: 'allo-jaw', label: '上颚撞刺待发 · 下次伤害附加流血', short: '颚' });
     if (unit.status.revealedUntil && this.round <= unit.status.revealedUntil) list.push({ key: 'revealed', label: '暴露 · 本回合可见', short: '露' });
     var hiddenZone = null;
     this.getFootprint(unit).forEach(function (cell) {
