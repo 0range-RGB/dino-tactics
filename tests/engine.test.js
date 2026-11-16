@@ -11,7 +11,7 @@ E.SPECIES.dummy = {
   passiveName: '无', passiveDesc: '', skillType: 'active'
 };
 assert.strictEqual(E.BOARD_SIZE, 10, '测试套件版本不匹配：请确认 engine.js 是 10×10 版本');
-console.log('\n测试套件：10×10 棋盘 · 60 项');
+console.log('\n测试套件：10×10 棋盘 · 62 项');
 
 let passed = 0;
 function test(name, fn) {
@@ -1161,6 +1161,61 @@ test('布阵阶段允许把多格单位放在植物格上', () => {
   assert.ok(g.getDeployCells(u).some((c) => c.x === 8 && c.y === 6));
   assert.strictEqual(g.deployMove(u.id, 8, 6).ok, true);
   assert.ok(g.getPlantAt(7, 6));
+});
+
+test('异特龙属性、上颚撞刺与流血增伤', () => {
+  assert.strictEqual(E.SPECIES.allo.size, 4);
+  assert.strictEqual(E.SPECIES.allo.hp, 10);
+  assert.strictEqual(E.SPECIES.allo.armor, 1);
+  assert.strictEqual(E.SPECIES.allo.attack, 5);
+  assert.strictEqual(E.SPECIES.allo.move, 3);
+  assert.strictEqual(E.SPECIES.allo.skillCd, 2);
+  assert.strictEqual(E.SPECIES.allo.diet, 'carnivore');
+
+  const g = make(['allo'], ['dummy']);
+  const allo = g.getUnit('blue-1');
+  const target = g.getUnit('red-2');
+  place(allo, 4, 4, 'N');
+  place(target, 4, 6, 'N');
+  g.activeTeam = 'blue'; allo.skillReadyRound = 1;
+  assert.ok(g.useSkill(allo.id).ok);
+  assert.strictEqual(allo.status.alloJaw, true);
+  assert.strictEqual(allo.turn.actionUsed, false);
+  assert.ok(g.attack(allo.id, target.id).ok);
+  assert.strictEqual(allo.status.alloJaw, false);
+  assert.strictEqual(target.status.bleed.length, 1);
+  assert.strictEqual(target.hp, 5);
+
+  const g2 = make(['allo'], ['dummy']);
+  const allo2 = g2.getUnit('blue-1');
+  const target2 = g2.getUnit('red-2');
+  place(allo2, 4, 4, 'N');
+  place(target2, 4, 6, 'N');
+  target2.status.bleed = [{ remaining: 4, sourceId: 'test' }];
+  g2.activeTeam = 'blue'; allo2.skillReadyRound = 1;
+  assert.ok(g2.useSkill(allo2.id).ok);
+  assert.ok(g2.attack(allo2.id, target2.id).ok);
+  assert.strictEqual(target2.status.bleed.length, 2);
+  assert.strictEqual(target2.hp, 4);
+});
+
+test('异特龙春风赐生按生命阈值回复', () => {
+  const g = make(['allo'], ['dummy']);
+  const u = g.getUnit('blue-1');
+  u.hp = 7;
+  g.applyAllosaurusRegen(u, []);
+  assert.strictEqual(u.hp, 8);
+  u.hp = 5;
+  g.applyAllosaurusRegen(u, []);
+  assert.strictEqual(u.hp, 5);
+  g.applyAllosaurusRegen(u, []);
+  assert.strictEqual(u.hp, 6);
+  u.hp = 3;
+  g.applyAllosaurusRegen(u, []);
+  g.applyAllosaurusRegen(u, []);
+  assert.strictEqual(u.hp, 3);
+  g.applyAllosaurusRegen(u, []);
+  assert.strictEqual(u.hp, 4);
 });
 
 console.log('\n通过 ' + passed + ' 项测试' + (process.exitCode ? '，存在失败' : '。'));
