@@ -11,7 +11,7 @@ E.SPECIES.dummy = {
   passiveName: '无', passiveDesc: '', skillType: 'active'
 };
 assert.strictEqual(E.BOARD_SIZE, 10, '测试套件版本不匹配：请确认 engine.js 是 10×10 版本');
-console.log('\n测试套件：10×10 棋盘 · 66 项');
+console.log('\n测试套件：10×10 棋盘 · 68 项');
 
 let passed = 0;
 function test(name, fn) {
@@ -1279,6 +1279,49 @@ test('其他单位不能食用被衔住的植物', () => {
   const check = g.canEatPlant(other.id, 5, 5);
   assert.strictEqual(check.allowed, false);
   assert.ok(/其他单位衔住/.test(check.reason));
+});
+
+test('伶盗龙翠羽猎手对护甲伤害减半', () => {
+  const g = make(['velo'], ['anky']);
+  const v = g.getUnit('blue-1');
+  const a = g.getUnit('red-2');
+  const res = g._damage(a, 3, { source: v, kind: 'attack', isAttack: true, armorDamageMultiplier: 0.5 }, []);
+  assert.strictEqual(res.armorDamage, 2);
+  assert.strictEqual(a.armor, 2);
+  assert.strictEqual(a.hp, 3);
+});
+
+test('伶盗龙闪避正面与侧面攻击，每局最多两次', () => {
+  const g = make(['dummy'], ['velo']);
+  const src = g.getUnit('blue-1');
+  const v = g.getUnit('red-2');
+  place(src, 5, 3, 'N');
+  place(v, 5, 5, 'N');
+  g.rng = () => 0;
+  let res = g._damage(v, 5, { source: src, kind: 'attack', isAttack: true }, []);
+  assert.strictEqual(res.dodged, true);
+  assert.strictEqual(v.hp, 3);
+  assert.strictEqual(v.status.dodgeUsed, 1);
+  res = g._damage(v, 5, { source: src, kind: 'attack', isAttack: true }, []);
+  assert.strictEqual(res.dodged, true);
+  assert.strictEqual(v.status.dodgeUsed, 2);
+  res = g._damage(v, 5, { source: src, kind: 'attack', isAttack: true }, []);
+  assert.strictEqual(res.dodged, undefined);
+  assert.ok(v.hp < 3);
+
+  const g2 = make(['dummy'], ['velo']);
+  const src2 = g2.getUnit('blue-1');
+  const v2 = g2.getUnit('red-2');
+  place(src2, 5, 7, 'N');
+  place(v2, 5, 5, 'N');
+  g2.rng = () => 0;
+  v2.hp = 3;
+  const rear = g2._damage(v2, 1, { source: src2, kind: 'attack', isAttack: true }, []);
+  assert.strictEqual(rear.dodged, undefined);
+  v2.status.hookReceived = [{ sourceId: src2.id }];
+  place(src2, 5, 3, 'N');
+  const hooked = g2._damage(v2, 1, { source: src2, kind: 'attack', isAttack: true }, []);
+  assert.strictEqual(hooked.dodged, undefined);
 });
 
 console.log('\n通过 ' + passed + ' 项测试' + (process.exitCode ? '，存在失败' : '。'));
