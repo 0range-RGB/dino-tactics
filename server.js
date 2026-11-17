@@ -167,6 +167,9 @@ function eventsForTeam(room, team, events) {
     if (!unit || unit.team === team || game.isUnitVisibleTo(team, unit)) return ev;
     if (ev.type === 'move') return { type: 'move', unitId: unit.id, hidden: true };
     if (ev.type === 'skill') return { type: 'skill', unitId: unit.id, hidden: true };
+    if (ev.type === 'plant_moved' || ev.type === 'plant_picked' || ev.type === 'plant_dropped' || ev.type === 'carry_start' || ev.type === 'carry_end') {
+      return { type: ev.type, unitId: unit.id, hidden: true };
+    }
     if (ev.type === 'rotate' || ev.type === 'facing') return { type: 'facing', unitId: unit.id, hidden: true };
     if (ev.type === 'log') return Object.assign({}, ev, { text: '雾中有恐龙移动。' });
     return ev;
@@ -294,6 +297,8 @@ function applyGameAction(game, action) {
         return game.releaseHook(String(action.unitId || ''));
       case 'escapeHook':
         return game.escapeHook(String(action.unitId || ''));
+      case 'endCarry':
+        return game.endCarry(String(action.unitId || ''));
       case 'deployMove':
         if (!intCoord(action.x) || !intCoord(action.y)) return { ok: false, error: '无效的布阵坐标。' };
         return game.deployMove(String(action.unitId || ''), action.x, action.y);
