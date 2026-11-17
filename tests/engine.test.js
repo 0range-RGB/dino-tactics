@@ -580,6 +580,8 @@ test('伶盗龙镰锯扑钩施加受钩挂并限制双方', () => {
   const res = g.useSkill(v.id);
   assert.ok(res.ok, res.error);
   assert.strictEqual(g.getHookStacks(t).length, 1);
+  assert.strictEqual(t.armor, 2);
+  assert.strictEqual(t.hp, 6);
   assert.ok(v.status.hook);
   assert.strictEqual(g.getReachable(v).length, 0);
   assert.strictEqual(g.getMoveLeft(t), t.move - 1);
