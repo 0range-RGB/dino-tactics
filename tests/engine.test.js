@@ -571,6 +571,7 @@ test('双方全灭判定平局', () => {
 
 
 test('伶盗龙镰锯扑钩施加受钩挂并限制双方', () => {
+  assert.strictEqual(E.SPECIES.velo.attack, 2);
   const g = make(['velo'], ['leso']);
   const v = g.getUnit('blue-1');
   const t = g.getUnit('red-2');
