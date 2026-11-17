@@ -176,6 +176,27 @@
       passiveDesc: '生命 ≥7 时每回合恢复 1 点；生命 4–6 时每 2 回合恢复 1 点；生命 1–3 时每 3 回合恢复 1 点。',
       skillType: 'active'
     },
+    scut: {
+      type: 'scut',
+      diet: 'herbivore',
+      name: '小盾龙',
+      latin: 'Scutellosaurus',
+      size: 1,
+      role: '衔食疾行者',
+      tags: ['衔食', '衔枚疾走', '减伤'],
+      hp: 4,
+      armor: 2,
+      attack: 1,
+      move: 3,
+      skillCd: 1,
+      accent: '#9fd86b',
+      emblem: '衔',
+      skillName: '衔食',
+      skillDesc: '衔起自身格或朝向前一格内的可食植物并携带移动；其他单位不能食用，自身可以食用，食用完毕后技能结束。可手动结束，将植物放在当前格。发动后仍可移动。',
+      passiveName: '衔枚疾走',
+      passiveDesc: '距离自身 2 格内有敌人时行动力 +1；技能持续时距离 3 格内有敌人再 +1；受到不超过 5 的伤害时减免 0.5。',
+      skillType: 'active'
+    },
     velo: {
       type: 'velo',
       diet: 'carnivore',
@@ -199,7 +220,7 @@
     }
   };
 
-  var SPECIES_ORDER = ['trike', 'trex', 'leso', 'stego', 'anky', 'velo', 'allo'];
+  var SPECIES_ORDER = ['trike', 'trex', 'leso', 'stego', 'anky', 'velo', 'allo', 'scut'];
 
   var HOOK_MAX_STACKS = { small: 2, medium: 3 };
   var HOOK_ESCAPE_RANGE = { small: [0.25, 0.45], medium: [0.45, 0.75] };
@@ -353,6 +374,7 @@
           eating: null,
           revealedUntil: 0,
           alloJaw: false,
+          carrying: null,
           regenCounter: 0,
           regenTier: 0,
           hook: null,
@@ -691,8 +713,9 @@
     this.getTeamUnits(team).forEach(function (unit) {
       if (!unit.alive) return;
       var eatMoveBonus = (unit.status.eatBuff > 0 && self.round <= unit.status.eatBuffUntil) ? 1 : 0;
+      var scutBonus = unit.type === 'scut' ? self.getScutMoveBonus(unit) : 0;
       unit.turn = {
-        moveLeft: unit.move + eatMoveBonus,
+        moveLeft: unit.move + eatMoveBonus + scutBonus,
         extraMove: 0,
         moved: false,
         actionUsed: false,
@@ -876,6 +899,16 @@
     return Math.max(0, unit.attack + form - unit.status.atkPenalty);
   };
 
+  Game.prototype.getScutMoveBonus = function (unit) {
+    if (!unit || unit.type !== 'scut' || !unit.alive) return 0;
+    var enemies = this.getEnemies(unit.team);
+    var near2 = enemies.some(function (enemy) { return distance(unit, enemy) <= 2; });
+    var near3 = enemies.some(function (enemy) { return distance(unit, enemy) <= 3; });
+    var bonus = near2 ? 1 : 0;
+    if (unit.status.carrying && near3) bonus += 1;
+    return bonus;
+  };
+
   Game.prototype.getMoveLeft = function (unit) {
     var base = unit.turn ? Math.max(0, unit.turn.moveLeft) : unit.move;
     if (unit.move >= 2 && this.getHookStacks(unit).length) base = Math.max(0, base - 1);
@@ -984,6 +1017,9 @@
       if (unit.status.guard) { result.reason = '物莫能陷已经处于待发状态'; return result; }
     } else if (unit.type === 'allo') {
       if (unit.status.alloJaw) { result.reason = '上颚撞刺已经处于待发状态'; return result; }
+    } else if (unit.type === 'scut') {
+      if (unit.status.carrying) { result.reason = '正在衔食'; return result; }
+      if (!this.getCarryablePlant(unit)) { result.reason = '自身格或朝向前一格内没有可食植物'; return result; }
     }
 
     result.ready = true;
@@ -1067,6 +1103,22 @@
       unit.status.alloJaw = true;
       this.pushLog(events, unit.name + ' 蓄势上颚撞刺：下一次成功造成伤害的攻击会附加流血。', 'status');
       events.push({ type: 'status', unitId: unit.id, status: 'allo-jaw' });
+    } else if (unit.type === 'scut') {
+      var carryPlant = this.getCarryablePlant(unit);
+      if (!carryPlant) return { ok: false, error: '没有可衔食的植物。', events: events };
+      unit.turn.skillUsed = true;
+      unit.skillReadyRound = this.round + def.skillCd + 1;
+      if (carryPlant.x !== unit.x || carryPlant.y !== unit.y) {
+        carryPlant.x = unit.x;
+        carryPlant.y = unit.y;
+        events.push({ type: 'plant_picked', unitId: unit.id, plantId: carryPlant.id, x: unit.x, y: unit.y });
+      }
+      unit.status.carrying = carryPlant.id;
+      var near3 = this.getEnemies(unit.team).some(function (enemy) { return distance(unit, enemy) <= 3; });
+      if (near3) unit.turn.moveLeft += 1;
+      this.pushLog(events, unit.name + ' 衔起可食植物，植物会跟随移动；其他单位暂时无法食用。', 'status', unit.id);
+      events.push({ type: 'carry_start', unitId: unit.id, plantId: carryPlant.id });
+      events.push({ type: 'status', unitId: unit.id, status: 'carrying' });
     } else if (unit.type === 'anky') {
       unit.turn.skillUsed = true;
       unit.skillReadyRound = this.round + def.skillCd + 1;
@@ -1260,6 +1312,11 @@
       notes.push('进食受创 +20%');
     }
 
+    if (target.type === 'scut' && amount > 0 && amount <= 5) {
+      amount = roundHalf(Math.max(0, amount - 0.5));
+      notes.push('衔枚疾走 -0.5');
+    }
+
     if (target.type === 'trike' && opts.isAttack && opts.source && opts.source.alive && this.isInFacingArc(target, opts.source)) {
       var guarded = roundHalf(amount * 0.85);
       if (guarded < amount) notes.push('吾盾之坚 ' + (amount - guarded));
@@ -1384,6 +1441,7 @@
     target.hp = 0;
     target.status.guard = false;
     target.status.devour = null;
+    if (target.status.carrying) this.dropCarriedPlant(target, events);
     this.pushLog(events, '☠ ' + target.name + ' 被击败！', 'death');
     events.push({ type: 'death', unitId: target.id, x: target.x, y: target.y, team: target.team });
 
@@ -1567,6 +1625,12 @@
     unit.y = y;
     unit.turn.moveLeft -= dest.dist;
     unit.turn.moved = true;
+    var carried = this.getCarriedPlant(unit);
+    if (carried) {
+      carried.x = x;
+      carried.y = y;
+      events.push({ type: 'plant_moved', unitId: unit.id, plantId: carried.id, x: x, y: y });
+    }
     this.pushLog(events, unit.name + ' 移动了。', 'move', unit.id);
     events.push({ type: 'move', unitId: unit.id, from: from, to: { x: x, y: y }, path: dest.path });
     this.followHookTarget(unit, from.x, from.y, dest.path, events);
@@ -1888,6 +1952,9 @@
     if (unit.status.ankyLock) list.push({ key: 'lock', label: '被尾槌压制', short: '晕' });
     if (unit.status.eating) list.push({ key: 'eating', label: '进食中 · 第 ' + unit.status.eating.completeRound + ' 回合完成', short: '食' });
     if (unit.status.alloJaw) list.push({ key: 'allo-jaw', label: '上颚撞刺待发 · 下次伤害附加流血', short: '颚' });
+    if (unit.status.carrying) list.push({ key: 'carrying', label: '衔食中 · 植物跟随移动', short: '衔' });
+    var scutBonus = unit.type === 'scut' ? this.getScutMoveBonus(unit) : 0;
+    if (scutBonus > 0) list.push({ key: 'scut-move', label: '衔枚疾走 · 行动力 +' + scutBonus, short: '疾' });
     if (unit.status.revealedUntil && this.round <= unit.status.revealedUntil) list.push({ key: 'revealed', label: '暴露 · 本回合可见', short: '露' });
     var hiddenZone = null;
     this.getFootprint(unit).forEach(function (cell) {
@@ -1946,6 +2013,57 @@
     }
     return null;
   };
+
+  Game.prototype.getCarriedPlant = function (unit) {
+    if (!unit || !unit.status.carrying) return null;
+    for (var i = 0; i < this.plants.length; i++) {
+      if (this.plants[i].id === unit.status.carrying) return this.plants[i];
+    }
+    return null;
+  };
+
+  Game.prototype.getPlantCarrier = function (plant) {
+    if (!plant) return null;
+    for (var i = 0; i < this.units.length; i++) {
+      if (this.units[i].alive && this.units[i].status.carrying === plant.id) return this.units[i];
+    }
+    return null;
+  };
+
+  Game.prototype.getCarryablePlant = function (unit) {
+    if (!unit || unit.type !== 'scut' || unit.status.carrying) return null;
+    var own = this.getPlantAt(unit.x, unit.y);
+    if (own) return own;
+    var cells = this.getFacingCells(unit);
+    for (var i = 0; i < cells.length; i++) {
+      var plant = this.getPlantAt(cells[i].x, cells[i].y);
+      if (plant) return plant;
+    }
+    return null;
+  };
+
+  Game.prototype.dropCarriedPlant = function (unit, events) {
+    if (!unit || !unit.status.carrying) return null;
+    var plant = this.getCarriedPlant(unit);
+    unit.status.carrying = null;
+    if (plant) {
+      plant.x = unit.x;
+      plant.y = unit.y;
+      this.pushLog(events, unit.name + ' 放下可食植物。', 'status', unit.id);
+      events.push({ type: 'plant_dropped', unitId: unit.id, plantId: plant.id, x: plant.x, y: plant.y });
+    }
+    return plant;
+  };
+
+  Game.prototype.endCarry = function (unitId) {
+    var events = [];
+    var unit = this.getUnit(unitId);
+    if (!unit || !unit.alive) return { ok: false, error: '找不到该单位。', events: events };
+    if (!unit.status.carrying) return { ok: false, error: '当前没有衔着植物。', events: events };
+    if (unit.status.eating) return { ok: false, error: '进食中无法放下植物。', events: events };
+    var plant = this.dropCarriedPlant(unit, events);
+    return { ok: true, events: events, plant: plant };
+  };
   Game.prototype.getFacingCells = function (unit) {
     if (!unit || !unit.alive) return [];
     var dir = DIRECTIONS[unit.facing];
@@ -1970,7 +2088,12 @@
     var cells = this.getFacingCells(unit);
     var keys = {};
     cells.forEach(function (cell) { keys[cell.x + ',' + cell.y] = true; });
-    return this.plants.filter(function (plant) { return keys[plant.x + ',' + plant.y]; });
+    var self = this;
+    return this.plants.filter(function (plant) {
+      if (!keys[plant.x + ',' + plant.y]) return false;
+      var carrier = self.getPlantCarrier(plant);
+      return !carrier || carrier.id === unit.id;
+    });
   };
 
   Game.prototype.canEatPlant = function (unitId, x, y) {
@@ -1985,6 +2108,12 @@
     if (unit.turn.done || unit.turn.actionUsed) return { allowed: false, reason: '本单位本回合已结束行动。' };
     var plant = this.getPlantAt(x, y);
     if (!plant) return { allowed: false, reason: '这里没有可食植物。' };
+    var carrier = this.getPlantCarrier(plant);
+    if (carrier && carrier.id !== unit.id) return { allowed: false, reason: '该植物正被其他单位衔住。' };
+    if (carrier && carrier.id === unit.id) {
+      var ownCells = this.getFootprint(unit);
+      if (ownCells.some(function (cell) { return cell.x === x && cell.y === y; })) return { allowed: true, plant: plant };
+    }
     var facing = this.getFacingCells(unit);
     if (!facing.some(function (cell) { return cell.x === x && cell.y === y; })) {
       return { allowed: false, reason: '植物不在朝向一格内。' };
@@ -2022,6 +2151,11 @@
     unit.status.eatBuff = nextStacks;
     unit.status.eatBuffUntil = this.round + (nextStacks >= 2 ? 4 : 3);
     plant.charges -= 1;
+    if (unit.status.carrying === plant.id) {
+      unit.status.carrying = null;
+      this.pushLog(events, unit.name + ' 食用完毕，衔食结束。', 'status', unit.id);
+      events.push({ type: 'carry_end', unitId: unit.id, plantId: plant.id, reason: 'eaten' });
+    }
     this.pushLog(events, unit.name + ' 进食完毕，恢复 ' + healed + ' 点生命，获得「进食完毕」' + nextStacks + ' 层。', 'heal');
     events.push({ type: 'eat_complete', unitId: unit.id, x: plant.x, y: plant.y, charges: plant.charges, stacks: nextStacks });
     events.push({ type: 'status', unitId: unit.id, status: 'eat-buff', stacks: nextStacks });
