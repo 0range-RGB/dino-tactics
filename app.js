@@ -2333,6 +2333,11 @@
         toast('进食完毕，获得「进食完毕」' + ev.stacks + ' 层');
       } else if (ev.type === 'eat_interrupted') {
         toast('进食被打断，未获得「进食完毕」');
+      } else if (ev.type === 'dodge') {
+        floatAt(ev.x, ev.y, '闪避', 'guard');
+        ringAt(ev.x, ev.y, 'guard');
+        Sound.guard();
+        toast('翠羽猎手触发闪避！');
       } else if (ev.type === 'guard') {
         floatAt(ev.x, ev.y, '格挡', 'guard');
         ringAt(ev.x, ev.y, 'guard');
