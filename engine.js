@@ -207,13 +207,13 @@
       tags: ['钩挂', '翠羽猎手'],
       hp: 3,
       armor: 1,
-      attack: 1,
+      attack: 2,
       move: 4,
       skillCd: 1,
       accent: '#c6e36b',
       emblem: '钩',
       skillName: '镰锯扑钩',
-      skillDesc: '对朝向一格内的敌人施加一层「受钩挂」，并对自身施加「钩挂」。若目标受钩挂层数已满则无法发动。钩挂期间攻击 +2、无法移动、技能不充能；目标失去受钩挂时钩挂结束。',
+      skillDesc: '对朝向一格内的敌人施加一层「受钩挂」，并对自身施加「钩挂」。若目标受钩挂层数已满则无法发动。钩挂期间攻击 +1、无法移动、技能不充能；目标失去受钩挂时钩挂结束。',
       passiveName: '翠羽猎手',
       passiveDesc: '夜晚行动力不降低；攻击只对护甲造成 50% 伤害；未受钩挂时，来自前方、斜前方或侧方的攻击有（自身行动力 - 攻击方行动力）×12.5% 概率闪避，每局最多 2 次。',
       skillType: 'active'
@@ -1223,8 +1223,8 @@
       events.push({ type: 'status', unitId: unit.id, status: 'allo-jaw-bonus' });
     }
     if (unit.type === 'velo' && unit.status.hook) {
-      raw += 2;
-      this.pushLog(events, unit.name + ' 处于钩挂状态，攻击 +2。', 'hook');
+      raw += 1;
+      this.pushLog(events, unit.name + ' 处于钩挂状态，攻击 +1。', 'hook');
       events.push({ type: 'status', unitId: unit.id, status: 'hook-attack' });
     }
     var pierce = false;
