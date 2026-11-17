@@ -11,7 +11,7 @@ E.SPECIES.dummy = {
   passiveName: '无', passiveDesc: '', skillType: 'active'
 };
 assert.strictEqual(E.BOARD_SIZE, 10, '测试套件版本不匹配：请确认 engine.js 是 10×10 版本');
-console.log('\n测试套件：10×10 棋盘 · 68 项');
+console.log('\n测试套件：10×10 棋盘 · 70 项');
 
 let passed = 0;
 function test(name, fn) {
@@ -1325,6 +1325,39 @@ test('伶盗龙闪避正面与侧面攻击，每局最多两次', () => {
   place(src2, 5, 3, 'N');
   const hooked = g2._damage(v2, 1, { source: src2, kind: 'attack', isAttack: true }, []);
   assert.strictEqual(hooked.dodged, undefined);
+});
+
+test('时段按八段循环，前夜/午夜/后夜为夜晚', () => {
+  const g = make(['trike'], ['dummy']);
+  assert.strictEqual(g.getPeriod().name, '黎明');
+  const names = ['黎明', '上午', '中午', '下午', '黄昏', '前夜', '午夜', '后夜'];
+  names.forEach((name, i) => {
+    g.round = i + 1;
+    assert.strictEqual(g.getPeriod().name, name);
+    assert.strictEqual(g.isNight(), i >= 5);
+  });
+  g.round = 9;
+  assert.strictEqual(g.getPeriod().name, '黎明');
+});
+
+test('夜晚基础行动力减益，技能加行动力不受影响', () => {
+  const g = make(['leso', 'velo'], ['dummy']);
+  g.round = 6;
+  g.startTeamTurn('blue', []);
+  const leso = g.getUnit('blue-1');
+  const velo = g.getUnit('blue-2');
+  assert.strictEqual(leso.turn.moveLeft, 1);
+  assert.strictEqual(velo.turn.moveLeft, 4);
+
+  const g2 = make(['trex'], ['dummy']);
+  g2.round = 6;
+  const trex = g2.getUnit('blue-1');
+  trex.move = 3;
+  trex.skillReadyRound = 1;
+  g2.startTeamTurn('blue', []);
+  assert.strictEqual(trex.turn.moveLeft, 2);
+  assert.ok(g2.useSkill(trex.id).ok);
+  assert.strictEqual(trex.turn.moveLeft, 4);
 });
 
 console.log('\n通过 ' + passed + ' 项测试' + (process.exitCode ? '，存在失败' : '。'));
