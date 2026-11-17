@@ -213,7 +213,7 @@
       accent: '#c6e36b',
       emblem: '钩',
       skillName: '镰锯扑钩',
-      skillDesc: '对朝向一格内的敌人施加一层「受钩挂」，并对自身施加「钩挂」。若目标受钩挂层数已满则无法发动。钩挂期间攻击 +1、无法移动、技能不充能；目标失去受钩挂时钩挂结束。',
+      skillDesc: '对朝向一格内的敌人造成 1 点伤害并施加一层「受钩挂」，同时对自身施加「钩挂」。若目标受钩挂层数已满则无法发动。钩挂期间攻击 +1、无法移动、技能不充能；目标失去受钩挂时钩挂结束。',
       passiveName: '翠羽猎手',
       passiveDesc: '夜晚行动力不降低；攻击只对护甲造成 50% 伤害；未受钩挂时，来自前方、斜前方或侧方的攻击有（自身行动力 - 攻击方行动力）×12.5% 概率闪避，每局最多 2 次。',
       skillType: 'active'
@@ -1780,6 +1780,13 @@
       }
       events.push({ type: 'hook_created', sourceId: unit.id, targetId: target.id, failed: true, large: true });
       return { ok: true, events: events, large: true };
+    }
+    this._damage(target, 1, { source: unit, kind: 'hook', isAttack: true, allowDevour: false }, events);
+    if (!unit.alive) return { ok: true, events: events, target: target };
+    if (!target.alive) {
+      this.pushLog(events, target.name + ' 在钩挂生效前被击倒。', 'hook');
+      events.push({ type: 'hook_created', sourceId: unit.id, targetId: target.id, failed: true, killed: true });
+      return { ok: true, events: events, target: target };
     }
     target.status.hookReceived.push({ sourceId: unit.id, createdTurn: this.round });
     unit.status.hook = { targetId: target.id, turnsHeld: 0 };
