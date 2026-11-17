@@ -166,7 +166,7 @@
 
   function cacheElements() {
     [
-      'battleApp', 'startScreen', 'roundNum', 'turnPill', 'turnBanner', 'turnTitle', 'turnSub',
+      'battleApp', 'startScreen', 'roundNum', 'periodPill', 'turnPill', 'turnBanner', 'turnTitle', 'turnSub',
       'blueTeamPanel', 'redTeamPanel', 'blueKills', 'redKills', 'board', 'grid', 'tokenLayer',
       'corpseLayer', 'plantLayer', 'fogLayer', 'effectLayer', 'moveLayer', 'boardHint', 'detailPanel', 'actionPanel', 'logList', 'logMeta',
       'boardViewport', 'btnZoomBoard',
@@ -666,6 +666,12 @@
   function renderHeader() {
     var g = state.game;
     els.roundNum.textContent = g.phase === 'deploy' ? '布阵' : String(g.round).padStart(2, '0');
+    var period = g.getPeriod ? g.getPeriod() : null;
+    if (els.periodPill && period) {
+      els.periodPill.textContent = period.name;
+      els.periodPill.classList.toggle('night', !!period.night);
+      els.periodPill.title = period.night ? '夜晚：基础行动力 ≥2 的单位行动力 -1（伶盗龙免疫）' : '白昼';
+    }
     // 击杀数：敌方阵亡数
     els.blueKills.textContent = g.getTeamUnits('red').filter(function (u) { return !u.alive; }).length;
     els.redKills.textContent = g.getTeamUnits('blue').filter(function (u) { return !u.alive; }).length;
@@ -712,7 +718,8 @@
         els.turnSub.textContent = state.mode === 'pvp' ? '双方可分别调整各自半场，完成后开始战斗' : '点击蓝色恐龙，在本方半场选择位置；红色为敌方自动布阵';
       }
     } else {
-      els.turnTitle.textContent = '第 ' + g.round + ' 回合 · ' + TEAM_INFO[g.activeTeam].name + '行动';
+      var turnPeriod = g.getPeriod ? g.getPeriod() : null;
+    els.turnTitle.textContent = '第 ' + g.round + ' 回合 · ' + (turnPeriod ? turnPeriod.name + ' · ' : '') + TEAM_INFO[g.activeTeam].name + '行动';
       if (state.mode === 'ai' && g.activeTeam === 'red') {
         els.turnSub.textContent = '敌方正在部署战术，请稍候……';
       } else if (state.mode === 'online') {
@@ -730,6 +737,7 @@
         var selected2 = g.getUnit(state.selectedId);
         els.turnSub.textContent = selected2 && selected2.team === g.activeTeam ? '已选择 ' + selected2.name + ' · 点击高亮格行动' : '选择一只恐龙开始行动';
       }
+      if (g.isNight()) els.turnSub.textContent += ' · 夜晚：基础行动力 ≥2 的单位 -1（伶盗龙免疫）';
       if (g.round >= 15) {
         banner.classList.add('attrition');
         els.turnSub.textContent += ' · 环境侵蚀：每回合 -1 生命';
@@ -1369,7 +1377,8 @@
 
   function updateLogMeta() {
     if (!state.game) return;
-    els.logMeta.textContent = state.game.phase === 'deploy' ? 'DEPLOY' : 'ROUND ' + String(state.game.round).padStart(2, '0');
+    var logPeriod = state.game.getPeriod ? state.game.getPeriod() : null;
+    els.logMeta.textContent = state.game.phase === 'deploy' ? 'DEPLOY' : 'ROUND ' + String(state.game.round).padStart(2, '0') + (logPeriod ? ' · ' + logPeriod.name : '');
   }
 
   /* ---------------- 事件 / 日志 ---------------- */
@@ -3164,6 +3173,7 @@
           '<div class="rule-box"><strong>开局布阵</strong><span>开局时双方可在本方半场任意空格放置恐龙并调整朝向，不消耗行动力。双方完成布阵后，蓝方先手进入第 1 回合。</span></div>' +
           '<div class="rule-box"><strong>队伍容量与占格</strong><span>小型恐龙占 1 格、消耗 1 容量；中型占 2 格 / 2 容量；三角龙与霸王龙为大型，占 4 格 / 4 容量。可重复编入同种恐龙，但每队总容量不能超过 ' + E.TEAM_CAPACITY + '。</span></div>' +
           '<div class="rule-box"><strong>行动流程</strong><span>每只恐龙每回合可移动，然后攻击或发动技能；也可以不移动。攻击或结束行动后该单位本回合结束。</span></div>' +
+          '<div class="rule-box"><strong>时段</strong><span>一个回合为一个时段，八个时段为一天并不断循环：黎明、上午、中午、下午、黄昏、前夜、午夜、后夜。对局从黎明开始。前夜、午夜、后夜为夜晚；夜晚时基础行动力 ≥2 的单位初始行动力 -1，伶盗龙免疫。技能、进食完毕等增加的额外行动力不受该减益影响。</span></div>' +
           '<div class="rule-box"><strong>整体移动</strong><span>恐龙占据的格子视为一个整体，按前后左右整体平移，不拆分；平移不会改变朝向，转向仍用朝向按钮单独操作。虚线框显示移动后的完整占位，点击框内任意格即可整体移动。</span></div>' +
           '<div class="rule-box"><strong>攻击范围</strong><span>自身占格外围一圈的相邻方格。大型 2×2、中型 2 格长条都按整个身体计算攻击范围；移动后可攻击，攻击后不能再移动。</span></div>' +
           '<div class="rule-box"><strong>伤害结算</strong><span>除流血外，所有伤害先扣除护甲，再扣除生命。护甲不足时溢出伤害进入生命。</span></div>' +
