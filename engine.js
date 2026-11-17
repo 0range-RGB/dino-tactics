@@ -204,7 +204,7 @@
       latin: 'Velociraptor',
       size: 1,
       role: '钩挂猎手',
-      tags: ['钩挂', '猎手'],
+      tags: ['钩挂', '翠羽猎手'],
       hp: 3,
       armor: 1,
       attack: 1,
@@ -214,8 +214,8 @@
       emblem: '钩',
       skillName: '镰锯扑钩',
       skillDesc: '对朝向一格内的敌人施加一层「受钩挂」，并对自身施加「钩挂」。若目标受钩挂层数已满则无法发动。钩挂期间攻击 +2、无法移动、技能不充能；目标失去受钩挂时钩挂结束。',
-      passiveName: '脆弱之爪',
-      passiveDesc: '攻击只对护甲造成 50% 的伤害。',
+      passiveName: '翠羽猎手',
+      passiveDesc: '夜晚行动力不降低；攻击只对护甲造成 50% 伤害；未受钩挂时，来自前方、斜前方或侧方的攻击有（自身行动力 - 攻击方行动力）×12.5% 概率闪避，每局最多 2 次。',
       skillType: 'active'
     }
   };
@@ -307,6 +307,7 @@
     this.phase = config.deployOnly ? 'deploy' : 'battle';
     this.deployOnly = !!config.deployOnly;
     this.hiddenEnabled = config.hiddenEnabled !== false;
+    this.night = !!config.night;
     this.winner = null;
     this.units = [];
     this.corpses = [];
@@ -374,6 +375,7 @@
           eating: null,
           revealedUntil: 0,
           alloJaw: false,
+          dodgeUsed: 0,
           carrying: null,
           regenCounter: 0,
           regenTier: 0,
@@ -899,6 +901,10 @@
     return Math.max(0, unit.attack + form - unit.status.atkPenalty);
   };
 
+  Game.prototype.isNight = function () {
+    return !!this.night;
+  };
+
   Game.prototype.getScutMoveBonus = function (unit) {
     if (!unit || unit.type !== 'scut' || !unit.alive) return 0;
     var enemies = this.getEnemies(unit.team);
@@ -917,6 +923,21 @@
 
   Game.prototype.isFormActive = function (unit) {
     return !!(unit && unit.status.formUntil && this.round <= unit.status.formUntil);
+  };
+
+  Game.prototype.isInFrontOrSideArc = function (target, source) {
+    if (!target || !source) return false;
+    var dir = DIRECTIONS[target.facing];
+    if (!dir) return false;
+    var tc = centerFor(target);
+    var sc = centerFor(source);
+    if (!tc || !sc) return false;
+    var vx = sc.x - tc.x;
+    var vy = sc.y - tc.y;
+    var len = Math.sqrt(vx * vx + vy * vy);
+    if (len === 0) return false;
+    var dot = (vx * dir.x + vy * dir.y) / len;
+    return dot >= -1e-9;
   };
 
   Game.prototype.isInFacingArc = function (target, source) {
@@ -1307,6 +1328,18 @@
       return { blocked: true, applied: 0, armorDamage: 0, hpDamage: 0 };
     }
 
+    if (target.type === 'velo' && opts.isAttack && opts.source && opts.source.alive && target.status.dodgeUsed < 2 &&
+        !target.status.hook && (!target.status.hookReceived || target.status.hookReceived.length === 0) &&
+        this.isInFrontOrSideArc(target, opts.source)) {
+      var dodgeChance = Math.max(0, (target.move - opts.source.move) * 0.125);
+      if (dodgeChance > 0 && this.rng() < dodgeChance) {
+        target.status.dodgeUsed += 1;
+        this.pushLog(events, target.name + ' 展开翠羽，闪避了 ' + opts.source.name + ' 的攻击！', 'dodge');
+        events.push({ type: 'dodge', unitId: target.id, sourceId: opts.source.id, x: target.x, y: target.y, chance: dodgeChance });
+        return { blocked: true, dodged: true, applied: 0, armorDamage: 0, hpDamage: 0 };
+      }
+    }
+
     if (target.status.eating) {
       amount = roundHalf(amount * 1.2);
       notes.push('进食受创 +20%');
@@ -1343,7 +1376,7 @@
     } else {
       if (opts.armorDamageMultiplier != null && opts.armorDamageMultiplier !== 1) {
         armorDamage = Math.min(target.armor, Math.max(0, Math.round(amount * opts.armorDamageMultiplier)));
-        if (armorDamage < Math.min(target.armor, amount)) notes.push('脆弱之爪');
+        if (armorDamage < Math.min(target.armor, amount)) notes.push('翠羽猎手');
       } else {
         armorDamage = Math.min(target.armor, amount);
       }
@@ -2172,6 +2205,7 @@
       round: this.round,
       activeTeam: this.activeTeam,
       phase: this.phase,
+      night: !!this.night,
       winner: this.winner,
       units: JSON.parse(JSON.stringify(this.units)),
       corpses: JSON.parse(JSON.stringify(this.corpses)),
@@ -2191,6 +2225,7 @@
     g.phase = snapshot.phase || 'battle';
     g.winner = snapshot.winner || null;
     g.hiddenEnabled = snapshot.hiddenEnabled !== false;
+    g.night = !!snapshot.night;
     g.units = JSON.parse(JSON.stringify(snapshot.units));
     g.corpses = JSON.parse(JSON.stringify(snapshot.corpses || []));
     g.plants = JSON.parse(JSON.stringify(snapshot.plants || []));
