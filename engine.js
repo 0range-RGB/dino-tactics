@@ -44,6 +44,17 @@
   };
   var FACING_ORDER = ['N', 'E', 'S', 'W'];
 
+  var PERIODS = [
+    { key: 'dawn', name: '黎明', night: false },
+    { key: 'morning', name: '上午', night: false },
+    { key: 'noon', name: '中午', night: false },
+    { key: 'afternoon', name: '下午', night: false },
+    { key: 'dusk', name: '黄昏', night: false },
+    { key: 'early-night', name: '前夜', night: true },
+    { key: 'midnight', name: '午夜', night: true },
+    { key: 'late-night', name: '后夜', night: true }
+  ];
+
   var TEAM_INFO = {
     blue: { name: '苍林盟约', short: '苍林', color: '#4fd1b5', dark: '#0d3b38' },
     red: { name: '赤焰部族', short: '赤焰', color: '#ff8263', dark: '#3b1814' }
@@ -716,8 +727,9 @@
       if (!unit.alive) return;
       var eatMoveBonus = (unit.status.eatBuff > 0 && self.round <= unit.status.eatBuffUntil) ? 1 : 0;
       var scutBonus = unit.type === 'scut' ? self.getScutMoveBonus(unit) : 0;
+      var nightPenalty = self.isNight() && unit.type !== 'velo' && unit.move >= 2 ? 1 : 0;
       unit.turn = {
-        moveLeft: unit.move + eatMoveBonus + scutBonus,
+        moveLeft: unit.move - nightPenalty + eatMoveBonus + scutBonus,
         extraMove: 0,
         moved: false,
         actionUsed: false,
@@ -901,8 +913,12 @@
     return Math.max(0, unit.attack + form - unit.status.atkPenalty);
   };
 
+  Game.prototype.getPeriod = function () {
+    return PERIODS[(Math.max(1, this.round) - 1) % PERIODS.length];
+  };
+
   Game.prototype.isNight = function () {
-    return !!this.night;
+    return this.getPeriod().night;
   };
 
   Game.prototype.getScutMoveBonus = function (unit) {
@@ -2212,7 +2228,8 @@
       round: this.round,
       activeTeam: this.activeTeam,
       phase: this.phase,
-      night: !!this.night,
+      night: this.isNight(),
+      period: this.getPeriod().name,
       winner: this.winner,
       units: JSON.parse(JSON.stringify(this.units)),
       corpses: JSON.parse(JSON.stringify(this.corpses)),
@@ -2252,6 +2269,7 @@
     TEAM_CAPACITY: TEAM_CAPACITY,
     BOARD_SIZE: BOARD_SIZE,
     MAP: MAP,
+    PERIODS: PERIODS,
     DIRECTIONS: DIRECTIONS,
     FACING_ORDER: FACING_ORDER,
     teamName: teamName,
