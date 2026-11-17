@@ -11,7 +11,7 @@ E.SPECIES.dummy = {
   passiveName: '无', passiveDesc: '', skillType: 'active'
 };
 assert.strictEqual(E.BOARD_SIZE, 10, '测试套件版本不匹配：请确认 engine.js 是 10×10 版本');
-console.log('\n测试套件：10×10 棋盘 · 62 项');
+console.log('\n测试套件：10×10 棋盘 · 66 项');
 
 let passed = 0;
 function test(name, fn) {
@@ -1216,6 +1216,69 @@ test('异特龙春风赐生按生命阈值回复', () => {
   assert.strictEqual(u.hp, 3);
   g.applyAllosaurusRegen(u, []);
   assert.strictEqual(u.hp, 4);
+});
+
+test('小盾龙衔食、植物跟随与放下', () => {
+  const g = make(['scut'], ['dummy']);
+  const s = g.getUnit('blue-1');
+  place(s, 5, 5, 'N');
+  g.plants = [{ id: 'carry-plant', x: 5, y: 5, kind: 'grass', charges: 2 }];
+  g.activeTeam = 'blue'; s.skillReadyRound = 1;
+  assert.ok(g.useSkill(s.id).ok);
+  assert.strictEqual(s.status.carrying, 'carry-plant');
+  assert.strictEqual(s.turn.actionUsed, false);
+  assert.ok(g.canEatPlant(s.id, 5, 5).allowed);
+  assert.ok(g.moveUnit(s.id, 5, 6).ok);
+  assert.strictEqual(g.getPlantAt(5, 6).id, 'carry-plant');
+  assert.strictEqual(g.endCarry(s.id).ok, true);
+  assert.strictEqual(s.status.carrying, null);
+  assert.strictEqual(g.getPlantAt(5, 6).id, 'carry-plant');
+});
+
+test('小盾龙可食用衔住的植物，食完后技能结束', () => {
+  const g = make(['scut'], ['dummy']);
+  const s = g.getUnit('blue-1');
+  place(s, 5, 5, 'N');
+  g.plants = [{ id: 'eat-carry', x: 5, y: 4, kind: 'grass', charges: 2 }];
+  g.activeTeam = 'blue'; s.skillReadyRound = 1;
+  assert.ok(g.useSkill(s.id).ok);
+  assert.strictEqual(g.getPlantAt(5, 5).id, 'eat-carry');
+  assert.ok(g.canEatPlant(s.id, 5, 5).allowed);
+  assert.ok(g.eatPlant(s.id, 5, 5).ok);
+  g.round = 2;
+  assert.strictEqual(g.completeEating(s, []), true);
+  assert.strictEqual(s.status.carrying, null);
+  assert.strictEqual(g.getPlantAt(5, 5).charges, 1);
+});
+
+test('小盾龙被动加减伤与衔食行动力', () => {
+  const g = make(['scut'], ['dummy']);
+  const s = g.getUnit('blue-1');
+  const e = g.getUnit('red-2');
+  place(s, 5, 5, 'N');
+  place(e, 5, 3, 'N');
+  assert.strictEqual(g.getScutMoveBonus(s), 1);
+  s.status.carrying = 'fake';
+  assert.strictEqual(g.getScutMoveBonus(s), 2);
+  s.status.carrying = null;
+  s.hp = 4; s.armor = 2;
+  const res = g._damage(s, 5, { source: e, kind: 'attack', isAttack: true }, []);
+  assert.strictEqual(res.applied, 4.5);
+  assert.strictEqual(s.hp, 1.5);
+});
+
+test('其他单位不能食用被衔住的植物', () => {
+  const g = make(['scut', 'leso'], ['dummy']);
+  const s = g.getUnit('blue-1');
+  const other = g.getUnit('blue-2');
+  place(s, 5, 5, 'N');
+  place(other, 5, 6, 'N');
+  g.plants = [{ id: 'carry-locked', x: 5, y: 5, kind: 'grass', charges: 2 }];
+  g.activeTeam = 'blue'; s.skillReadyRound = 1;
+  assert.ok(g.useSkill(s.id).ok);
+  const check = g.canEatPlant(other.id, 5, 5);
+  assert.strictEqual(check.allowed, false);
+  assert.ok(/其他单位衔住/.test(check.reason));
 });
 
 console.log('\n通过 ' + passed + ' 项测试' + (process.exitCode ? '，存在失败' : '。'));
