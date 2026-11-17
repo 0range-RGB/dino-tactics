@@ -28,6 +28,7 @@
     velo: '<svg viewBox="0 0 64 64" aria-hidden="true"><path fill="currentColor" d="M7 47c8-1 14-5 18-11l-2-8 4-9 7 2-2 10 7 6 12 3-1 8-15-1-5 9-6-1 2-8-13 8-6-2 4-8-7 1z"/><path fill="currentColor" d="M31 20l-3-10 7 6 6-4-2 10z" opacity=".6"/><path fill="currentColor" d="M43 45l6 2-2 8-5-1zM47 40l4 3-4 2z" opacity=".8"/><circle cx="34" cy="18" r="1.4" fill="#081310"/></svg>'
   };
   DINO_SVG.allo = '<svg viewBox="0 0 64 64" aria-hidden="true"><path fill="currentColor" d="M6 48c7-1 12-5 15-11l4-9 9-5 9 3 7-4 6 4-4 5 3 5-7 4-3 10-6-1 1-8-8 5-3 7-6-1 3-9-11-2-7 7-6-1 4-6-5-3z"/><path fill="currentColor" opacity=".55" d="M31 23l5-2 4 2-3 3zM38 33l4 1-2 3z"/></svg>';
+  DINO_SVG.scut = '<svg viewBox="0 0 64 64" aria-hidden="true"><path fill="currentColor" d="M14 47c7-2 11-6 13-12l-3-7 4-9 7 2-1 9 8 4 11 1 5 4-6 4-12 1-4 8-6-1 2-8-9 5-4 6-6-1 3-6-5-1z"/><path fill="currentColor" opacity=".55" d="M25 25l3-7 3 7zM34 28l3-6 2 6zM43 30l3-5 2 5z"/></svg>';
 
   var state = {
     game: null,
@@ -1096,7 +1097,7 @@
         var label = first.short;
         if (first.key === 'bleed') label = '血' + unit.status.bleed.length;
         if (first.key === 'devour' || first.key === 'devour-pause') label = '食';
-        var badgeClass = first.key === 'bleed' ? 'bleed' : first.key === 'guard' ? 'guard' : first.key === 'devour' || first.key === 'devour-pause' ? 'devour' : first.key === 'assault' ? 'assault' : first.key === 'hook' ? 'hook' : first.key === 'hook-received' ? 'hook-received' : first.key === 'hook-cooldown' ? 'hook-cooldown' : first.key === 'eat-buff' ? 'eat-buff' : first.key === 'eating' ? 'eating' : first.key === 'hidden-zone' ? 'hidden-zone' : first.key === 'revealed' ? 'revealed' : first.key === 'allo-jaw' ? 'allo-jaw' : '';
+        var badgeClass = first.key === 'bleed' ? 'bleed' : first.key === 'guard' ? 'guard' : first.key === 'devour' || first.key === 'devour-pause' ? 'devour' : first.key === 'assault' ? 'assault' : first.key === 'hook' ? 'hook' : first.key === 'hook-received' ? 'hook-received' : first.key === 'hook-cooldown' ? 'hook-cooldown' : first.key === 'eat-buff' ? 'eat-buff' : first.key === 'eating' ? 'eating' : first.key === 'hidden-zone' ? 'hidden-zone' : first.key === 'revealed' ? 'revealed' : first.key === 'allo-jaw' ? 'allo-jaw' : first.key === 'carrying' ? 'carrying' : first.key === 'scut-move' ? 'scut-move' : '';
         badge = '<span class="token-status ' + badgeClass + '">' + label + '</span>';
       }
       var icon = dinoSvg(unit.type);
@@ -1248,7 +1249,15 @@
     var targets = g.getAttackTargets(selected);
     var moveLeft = g.getMoveLeft(selected);
     var corpseResume = canResumeDevour(selected);
-    var ediblePlants = SPECIES[selected.type].diet === 'herbivore' ? g.getFacingPlants(selected) : [];
+    var ediblePlants = [];
+    if (SPECIES[selected.type].diet === 'herbivore') {
+      if (selected.status.carrying) {
+        var carriedPlant = g.getCarriedPlant(selected);
+        if (carriedPlant) ediblePlants = [carriedPlant];
+      } else {
+        ediblePlants = g.getFacingPlants(selected);
+      }
+    }
     var done = selected.turn.done;
     var controlsLocked = state.busy || (state.mode === 'online' && !state.online.connected);
     var hookStacks = g.getHookStacks(selected);
@@ -1282,6 +1291,7 @@
         (state.skillMode === 'anky' ? '<button type="button" class="action-btn" data-action="cancel-skill"><span class="action-icon">×</span><span class="action-copy"><b>取消选择</b><small>退出尾槌目标模式</small></span></button>' : '') +
         (escapeCheck.allowed ? '<button type="button" class="action-btn" data-action="escape-hook" ' + (controlsLocked ? 'disabled' : '') + '><span class="action-icon">解</span><span class="action-copy"><b>' + (hookStacks.length > 1 ? '摆脱受钩挂（最早层）' : '摆脱受钩挂') + '</b><small>成功率 ' + Math.round(g.getHookEscapeChance(selected) * 100) + '%，成功失去一层</small></span></button>' : '') +
         (releaseCheck.allowed ? '<button type="button" class="action-btn" data-action="release-hook" ' + (controlsLocked ? 'disabled' : '') + '><span class="action-icon">收</span><span class="action-copy"><b>解除钩挂</b><small>结束自身钩挂，消耗本回合行动</small></span></button>' : '') +
+        (selected.status.carrying ? '<button type="button" class="action-btn" data-action="end-carry" ' + (controlsLocked ? 'disabled' : '') + '><span class="action-icon">放</span><span class="action-copy"><b>放下衔食植物</b><small>结束衔食，植物留在当前格</small></span></button>' : '') +
         (corpseResume ? '<button type="button" class="action-btn devour" data-action="resume-devour"><span class="action-icon">食</span><span class="action-copy"><b>继续吞食</b><small>消耗本回合，恢复 1 点生命</small></span></button>' : '') +
         ediblePlants.map(function (plant) {
           return '<button type="button" class="action-btn" data-action="eat-plant" data-x="' + plant.x + '" data-y="' + plant.y + '" ' + (controlsLocked ? 'disabled' : '') + '><span class="action-icon">' + (plant.kind === 'forest' ? '🌲' : '🌿') + '</span><span class="action-copy"><b>开始进食</b><small>持续 1 回合 · 受攻击会被打断 · 剩余 ' + plant.charges + ' 次</small></span><span class="action-key">进食</span></button>';
@@ -2686,6 +2696,8 @@
         renderAll();
       } else if (action === 'release-hook') {
         submitAction({ type: 'releaseHook', unitId: unit.id });
+      } else if (action === 'end-carry') {
+        submitAction({ type: 'endCarry', unitId: unit.id });
       } else if (action === 'escape-hook') {
         submitAction({ type: 'escapeHook', unitId: unit.id });
       } else if (action === 'resume-devour') {
@@ -2840,6 +2852,12 @@
 
     if (unit.type === 'trex' && g.getSkillStatus(unit).ready) {
       var tRexResult = await perform(function () { return g.useSkill(unit.id); });
+      if (!unit.alive || state.game.phase !== 'battle') return;
+      if (unit.turn.done) return;
+    }
+
+    if (unit.type === 'scut' && g.getSkillStatus(unit).ready) {
+      await perform(function () { return g.useSkill(unit.id); });
       if (!unit.alive || state.game.phase !== 'battle') return;
       if (unit.turn.done) return;
     }
