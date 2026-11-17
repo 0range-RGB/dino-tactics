@@ -495,6 +495,8 @@ button:focus-visible, [role="button"]:focus-visible {
 .turn-pill.blue { color: var(--teal); border-color: rgba(79,209,181,.25); background: rgba(79,209,181,.06); }
 .turn-pill.red { color: var(--red); border-color: rgba(255,130,99,.25); background: rgba(255,130,99,.06); }
 .turn-pill.gold { color: var(--amber); border-color: rgba(231,182,94,.3); background: rgba(231,182,94,.06); }
+.period-pill { font-size: 9px; letter-spacing: .08em; padding: 5px 9px; border-radius: 99px; color: var(--amber-soft); border: 1px solid rgba(231,182,94,.22); background: rgba(231,182,94,.05); }
+.period-pill.night { color: #b9c8ff; border-color: rgba(120,145,255,.35); background: rgba(68,88,170,.16); }
 .top-actions { display: flex; gap: 7px; min-width: 170px; justify-content: flex-end; }
 .sound-off { opacity: .45; }
 
