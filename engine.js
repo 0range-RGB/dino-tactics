@@ -182,7 +182,7 @@
       accent: '#d46b4f',
       emblem: '颚',
       skillName: '上颚撞刺',
-      skillDesc: '下一次成功造成伤害的攻击会附加 1 层流血；若目标原本已带有流血，这次攻击伤害 +1，并使流血叠加到 2 层。发动后仍可移动和攻击。',
+      skillDesc: '下一次成功造成伤害的攻击会附加 1 层流血；若目标原本已带有流血，这次攻击伤害 +1，并使流血叠加到 2 层。发动后仍可移动和攻击；已处于待发状态时可以再次发动，刷新待发效果。',
       passiveName: '春风赐生',
       passiveDesc: '生命 ≥7 时每回合恢复 1 点；生命 4–6 时每 2 回合恢复 1 点；生命 1–3 时每 3 回合恢复 1 点。',
       skillType: 'active'
@@ -1052,8 +1052,6 @@
       if (this.isFormActive(unit)) { result.reason = '反击形态已开启'; return result; }
     } else if (unit.type === 'trike') {
       if (unit.status.guard) { result.reason = '物莫能陷已经处于待发状态'; return result; }
-    } else if (unit.type === 'allo') {
-      if (unit.status.alloJaw) { result.reason = '上颚撞刺已经处于待发状态'; return result; }
     } else if (unit.type === 'scut') {
       if (unit.status.carrying) { result.reason = '正在衔食'; return result; }
       if (!this.getCarryablePlant(unit)) { result.reason = '自身格或朝向前一格内没有可食植物'; return result; }
@@ -1137,8 +1135,9 @@
     } else if (unit.type === 'allo') {
       unit.turn.skillUsed = true;
       unit.skillReadyRound = this.round + def.skillCd + 1;
+      var wasAlloJaw = unit.status.alloJaw;
       unit.status.alloJaw = true;
-      this.pushLog(events, unit.name + ' 蓄势上颚撞刺：下一次成功造成伤害的攻击会附加流血。', 'status');
+      this.pushLog(events, unit.name + (wasAlloJaw ? ' 再次蓄势上颚撞刺，效果保持。' : ' 蓄势上颚撞刺：下一次成功造成伤害的攻击会附加流血。'), 'status');
       events.push({ type: 'status', unitId: unit.id, status: 'allo-jaw' });
     } else if (unit.type === 'scut') {
       var carryPlant = this.getCarryablePlant(unit);
