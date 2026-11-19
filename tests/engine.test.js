@@ -1184,6 +1184,10 @@ test('异特龙属性、上颚撞刺与流血增伤', () => {
   assert.ok(g.useSkill(allo.id).ok);
   assert.strictEqual(allo.status.alloJaw, true);
   assert.strictEqual(allo.turn.actionUsed, false);
+  allo.turn.skillUsed = false;
+  allo.skillReadyRound = 1;
+  assert.ok(g.useSkill(allo.id).ok, '上颚撞刺可再次开启');
+  assert.strictEqual(allo.status.alloJaw, true);
   assert.ok(g.attack(allo.id, target.id).ok);
   assert.strictEqual(allo.status.alloJaw, false);
   assert.strictEqual(target.status.bleed.length, 1);
