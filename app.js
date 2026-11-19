@@ -2876,7 +2876,7 @@
       if (unit.turn.done) return;
     }
 
-    if (unit.type === 'allo' && g.getSkillStatus(unit).ready) {
+    if (unit.type === 'allo' && !unit.status.alloJaw && g.getSkillStatus(unit).ready) {
       await perform(function () { return g.useSkill(unit.id); });
       if (!unit.alive || state.game.phase !== 'battle') return;
       if (unit.turn.done) return;
